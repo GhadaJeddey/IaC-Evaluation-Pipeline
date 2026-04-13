@@ -1,0 +1,1160 @@
+{
+    "tier_a": {
+        "description": "Single instance app groups \u2014 role detection + blast radius",
+        "scenarios": {
+            "A1": {
+                "scenario_id": "A1",
+                "description": "Steady instance, idle, no relationships",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "STOP",
+                "app_group": "APP-A1",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a001",
+                        "instance_name": "web-server-idle-01",
+                        "instance_type": "t3.medium",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "STOP",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 3.21,
+                            "p99_cpu": 4.05,
+                            "max_cpu": 5.87,
+                            "p95_ram": 28.4,
+                            "cv": 0.08,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (3.2%) and peak CPU (5.9%) below thresholds over 7 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0416,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 30.05
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"web_server_idle_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"web-server-idle-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "steady idle role confirmed",
+                        "P95 CPU 3.2% well below threshold",
+                        "STOP is the correct action",
+                        "no relationships \u2014 no blast radius concern"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A2": {
+                "scenario_id": "A2",
+                "description": "Steady instance, zombie (stopped > 30 days, near-zero network)",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "TERMINATE",
+                "app_group": "APP-A2",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a002",
+                        "instance_name": "old-batch-server-01",
+                        "instance_type": "m5.large",
+                        "role": "steady",
+                        "status": "stopped",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "TERMINATE",
+                            "waste_type": "zombie",
+                            "stopped_days": 38,
+                            "network_out_bytes_avg": 42,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Zombie: Instance stopped for 38 days with near-zero network activity (42 bytes avg).",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "detection_window_days": null,
+                            "p95_cpu": null,
+                            "p99_cpu": null,
+                            "max_cpu": null,
+                            "p95_ram": null,
+                            "cv": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.096,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 69.12
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"old_batch_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 40\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"old-batch-server-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": true,
+                    "terraform_change": "Remove aws_instance resource block for old-batch-server-01 (stopped 38 days, zombie)",
+                    "terraform_must_include": [
+                        "aws_instance"
+                    ],
+                    "key_facts": [
+                        "stopped 38 days",
+                        "near-zero network activity (42 bytes avg)",
+                        "zombie \u2014 no workload evidence",
+                        "TERMINATE is correct \u2014 LLM must remove the resource block"
+                    ]
+                }
+            },
+            "A3": {
+                "scenario_id": "A3",
+                "description": "Steady instance, oversized, no relationships",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DOWNSIZE",
+                "app_group": "APP-A3",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a003",
+                        "instance_name": "api-server-oversized-01",
+                        "instance_type": "c5.xlarge",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "oversized",
+                            "detection_window_days": 14,
+                            "p95_cpu": 7.82,
+                            "p99_cpu": 11.3,
+                            "max_cpu": 17.6,
+                            "p95_ram": 31.2,
+                            "cv": 0.11,
+                            "recommended_type": "c5.large",
+                            "projected_cpu_pct": 15.64,
+                            "projected_ram_pct": 62.4,
+                            "detection_reason": "Steady Oversized: P95 CPU (7.8%) and peak CPU (17.6%) below capacity thresholds over 14 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.192,
+                            "recommended_cost_per_hour": 0.096,
+                            "waste_per_month": 69.12
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"api_server_oversized_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.xlarge\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"api-server-oversized-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "steady oversized",
+                        "P95 CPU 7.8% and peak 17.6% below capacity",
+                        "DOWNSIZE to c5.large correct",
+                        "projected CPU 15.6% on c5.large \u2014 safe headroom"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A4": {
+                "scenario_id": "A4",
+                "description": "Bursty instance, peak CPU never exceeded 20% threshold",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DOWNSIZE",
+                "app_group": "APP-A4",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a004",
+                        "instance_name": "batch-worker-bursty-01",
+                        "instance_type": "c5.xlarge",
+                        "role": "bursty",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "oversized",
+                            "detection_window_days": 14,
+                            "p95_cpu": 9.4,
+                            "p99_cpu": 14.3,
+                            "max_cpu": 17.8,
+                            "p95_ram": 33.6,
+                            "cv": 1.84,
+                            "recommended_type": "c5.large",
+                            "projected_cpu_pct": 18.8,
+                            "projected_ram_pct": 67.2,
+                            "detection_reason": "Bursty Oversized: Peak CPU (17.8%) never exceeded 20% threshold over 14 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.192,
+                            "recommended_cost_per_hour": 0.096,
+                            "waste_per_month": 69.12
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"batch_worker_bursty_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.xlarge\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"batch-worker-bursty-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "bursty role",
+                        "peak CPU 17.8% never exceeded 20% bursty threshold over 14 days",
+                        "CV 1.84 \u2014 high variability but still fits smaller instance",
+                        "DOWNSIZE to c5.large correct"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A5": {
+                "scenario_id": "A5",
+                "description": "Dependent primary, tightened thresholds met, action capped at DOWNSIZE",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DOWNSIZE",
+                "app_group": "APP-A5",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a005",
+                        "instance_name": "db-primary-01",
+                        "instance_type": "r5.xlarge",
+                        "role": "dependent_primary",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "oversized",
+                            "detection_window_days": 14,
+                            "p95_cpu": 2.1,
+                            "p99_cpu": 5.8,
+                            "max_cpu": 8.4,
+                            "p95_ram": 22.3,
+                            "cv": 0.13,
+                            "recommended_type": "r5.large",
+                            "projected_cpu_pct": 4.2,
+                            "projected_ram_pct": 44.6,
+                            "detection_reason": "Dependent Primary: P95 CPU (2.1%) and peak CPU (8.4%) meet tightened thresholds. Action capped at DOWNSIZE.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.252,
+                            "recommended_cost_per_hour": 0.126,
+                            "waste_per_month": 90.72
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"db_primary_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.xlarge\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"db-primary-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "dependent_primary role \u2014 tightened thresholds apply",
+                        "P95 CPU 2.1% and peak 8.4% meet tightened thresholds",
+                        "action capped at DOWNSIZE (not STOP/TERMINATE for primary)",
+                        "DOWNSIZE to r5.large correct"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A6": {
+                "scenario_id": "A6",
+                "description": "Dependent secondary, primary peak cool \u2014 secondary-safe downsize succeeds",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DOWNSIZE",
+                "app_group": "APP-A6",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a006",
+                        "instance_name": "db-secondary-01",
+                        "instance_type": "r5.large",
+                        "role": "dependent_secondary",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "secondary_safe",
+                            "primary_instance_id": "i-a005",
+                            "primary_instance_name": "db-primary-01",
+                            "primary_p99_cpu": 43.2,
+                            "primary_max_cpu": 51.8,
+                            "recommended_type": "r5.medium",
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Dependent Secondary: Primary P99 CPU (43.2%) allows safe downsize of secondary to r5.medium.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": "DOWNSIZE",
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "detection_window_days": null,
+                            "p95_cpu": null,
+                            "p99_cpu": null,
+                            "max_cpu": null,
+                            "p95_ram": null,
+                            "cv": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.126,
+                            "recommended_cost_per_hour": 0.063,
+                            "waste_per_month": 45.36
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"db_secondary_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"db-secondary-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "dependent_secondary \u2014 secondary-safe algorithm used",
+                        "primary db-primary-01 P99 CPU 43.2% \u2014 cool enough to allow downsize",
+                        "safe to downsize secondary when primary is not hot",
+                        "DOWNSIZE to r5.medium correct"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A7": {
+                "scenario_id": "A7",
+                "description": "Dependent secondary, primary runs hot \u2014 no safe downsize, NEEDS_REVIEW",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "NEEDS_REVIEW",
+                "app_group": "APP-A7",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a007",
+                        "instance_name": "db-secondary-02",
+                        "instance_type": "r5.large",
+                        "role": "dependent_secondary",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "NEEDS_REVIEW",
+                            "waste_type": "secondary_safe",
+                            "primary_instance_id": "i-primary-hot",
+                            "primary_instance_name": "db-primary-prod",
+                            "primary_p99_cpu": 87.4,
+                            "primary_max_cpu": 94.1,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Dependent Secondary: Primary P99 CPU (87.4%) too high \u2014 no safe fallback instance type exists.",
+                            "safety_status": "NEEDS_REVIEW",
+                            "block_reason": "primary_too_hot_for_safe_downsize",
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": {
+                                "depth": 1,
+                                "affected_instances": [
+                                    "i-primary-hot"
+                                ],
+                                "verdict": "high"
+                            },
+                            "detection_window_days": null,
+                            "p95_cpu": null,
+                            "p99_cpu": null,
+                            "max_cpu": null,
+                            "p95_ram": null,
+                            "cv": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.126,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"db_secondary_02\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"db-secondary-02\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "NONE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "dependent_secondary \u2014 primary runs hot at P99 87.4%",
+                        "no safe fallback instance type exists for the secondary",
+                        "NEEDS_REVIEW is correct \u2014 human must confirm before any action",
+                        "blast_radius high \u2014 i-primary-hot would be affected"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A8": {
+                "scenario_id": "A8",
+                "description": "Backup instance, primary peak cool \u2014 secondary-safe downsize succeeds",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DOWNSIZE",
+                "app_group": "APP-A8",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a008",
+                        "instance_name": "app-backup-01",
+                        "instance_type": "m5.large",
+                        "role": "backup",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "secondary_safe",
+                            "primary_instance_id": "i-app-primary",
+                            "primary_instance_name": "app-primary-prod",
+                            "primary_p99_cpu": 38.7,
+                            "primary_max_cpu": 47.3,
+                            "recommended_type": "m5.medium",
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Backup: Primary P99 CPU (38.7%) allows safe downsize of backup instance to m5.medium.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": "DOWNSIZE",
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "detection_window_days": null,
+                            "p95_cpu": null,
+                            "p99_cpu": null,
+                            "max_cpu": null,
+                            "p95_ram": null,
+                            "cv": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.096,
+                            "recommended_cost_per_hour": 0.048,
+                            "waste_per_month": 34.56
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"app_backup_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"app-backup-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "backup role \u2014 secondary-safe algorithm applies",
+                        "primary app-primary-prod P99 CPU 38.7% \u2014 cool",
+                        "safe to downsize backup when primary load is moderate",
+                        "DOWNSIZE to m5.medium correct"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A9": {
+                "scenario_id": "A9",
+                "description": "Steady idle + reads_from DynamoDB at 30% confidence \u2014 STOP with pipeline_warning",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "STOP",
+                "app_group": "APP-A9",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a009",
+                        "instance_name": "payments-api-01",
+                        "instance_type": "t3.medium",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "STOP",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 2.9,
+                            "p99_cpu": 3.8,
+                            "max_cpu": 5.1,
+                            "p95_ram": 26.7,
+                            "cv": 0.07,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (2.9%) and peak CPU (5.1%) below thresholds over 7 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": true,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0416,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 30.05
+                        },
+                        "relationships": [
+                            {
+                                "relationship_type": "reads_from",
+                                "target_resource_id": "payments-table",
+                                "target_resource_type": "dynamodb",
+                                "target_resource_name": "payments",
+                                "confidence": 0.3,
+                                "derivation_source": "iam_policy",
+                                "derivation_evidence": {
+                                    "policy_action": "dynamodb:GetItem",
+                                    "resource_arn": "arn:aws:dynamodb:us-east-1:123456789012:table/payments"
+                                }
+                            }
+                        ],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"payments_api_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"payments-api-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": true,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "reads_from DynamoDB at 30% confidence (IAM policy inference)",
+                        "pipeline_warning raised \u2014 Type A relationship",
+                        "LLM must acknowledge warning in risk_notes",
+                        "STOP is still correct \u2014 warning does not block action",
+                        "derivation evidence: dynamodb:GetItem on payments table"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A10": {
+                "scenario_id": "A10",
+                "description": "Steady idle + writes_to S3 at 30% confidence \u2014 STOP with pipeline_warning",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "STOP",
+                "app_group": "APP-A10",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a010",
+                        "instance_name": "export-worker-01",
+                        "instance_type": "t3.medium",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "STOP",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 3.6,
+                            "p99_cpu": 4.4,
+                            "max_cpu": 6.2,
+                            "p95_ram": 24.1,
+                            "cv": 0.09,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (3.6%) and peak CPU (6.2%) below thresholds over 7 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": true,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0416,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 30.05
+                        },
+                        "relationships": [
+                            {
+                                "relationship_type": "writes_to",
+                                "target_resource_id": "exports-bucket-prod",
+                                "target_resource_type": "s3",
+                                "target_resource_name": "exports-bucket-prod",
+                                "confidence": 0.3,
+                                "derivation_source": "iam_policy",
+                                "derivation_evidence": {
+                                    "policy_action": "s3:PutObject",
+                                    "resource_arn": "arn:aws:s3:::exports-bucket-prod/*"
+                                }
+                            }
+                        ],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"export_worker_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"export-worker-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": true,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "writes_to S3 at 30% confidence (IAM policy inference)",
+                        "pipeline_warning raised \u2014 Type A relationship",
+                        "LLM must acknowledge warning in risk_notes",
+                        "STOP is still correct \u2014 warning does not block action",
+                        "derivation evidence: s3:PutObject on exports-bucket-prod"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A11": {
+                "scenario_id": "A11",
+                "description": "Steady idle + failover_for EC2 at 100% (manual declaration) \u2014 NEEDS_REVIEW",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "NEEDS_REVIEW",
+                "app_group": "APP-A11",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a011",
+                        "instance_name": "app-standby-01",
+                        "instance_type": "m5.large",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "NEEDS_REVIEW",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 2.7,
+                            "p99_cpu": 3.5,
+                            "max_cpu": 4.9,
+                            "p95_ram": 21.3,
+                            "cv": 0.06,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (2.7%) and peak CPU (4.9%) below thresholds \u2014 blocked by Type E relationship.",
+                            "safety_status": "NEEDS_REVIEW",
+                            "block_reason": "type_e_redundancy",
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": true,
+                            "blast_radius": {
+                                "depth": 1,
+                                "affected_instances": [
+                                    "i-app-primary-prod"
+                                ],
+                                "verdict": "high"
+                            },
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.096,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0
+                        },
+                        "relationships": [
+                            {
+                                "relationship_type": "failover_for",
+                                "target_resource_id": "i-app-primary-prod",
+                                "target_resource_type": "ec2",
+                                "target_resource_name": "app-primary-prod",
+                                "confidence": 1.0,
+                                "derivation_source": "manual",
+                                "derivation_evidence": {
+                                    "declared_by": "RELATIONSHIP_MODE=manual",
+                                    "declared_at": "2026-03-15T00:00:00Z"
+                                }
+                            }
+                        ],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"app_standby_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"app-standby-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "NONE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "failover_for relationship at 100% confidence (manual declaration)",
+                        "Type E relationship \u2014 hard block on any action",
+                        "NEEDS_REVIEW is correct \u2014 standby instance must not be stopped",
+                        "blast_radius high: app-primary-prod would lose failover coverage",
+                        "redundancy_node=true \u2014 engineer must decide"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A12": {
+                "scenario_id": "A12",
+                "description": "Steady idle + replicates_to EC2 at 100% (manual declaration) \u2014 NEEDS_REVIEW",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "NEEDS_REVIEW",
+                "app_group": "APP-A12",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a012",
+                        "instance_name": "data-replica-target-01",
+                        "instance_type": "r5.large",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "NEEDS_REVIEW",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 3.1,
+                            "p99_cpu": 4.2,
+                            "max_cpu": 5.6,
+                            "p95_ram": 29.8,
+                            "cv": 0.07,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (3.1%) below thresholds \u2014 blocked by Type E relationship.",
+                            "safety_status": "NEEDS_REVIEW",
+                            "block_reason": "type_e_redundancy",
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": true,
+                            "blast_radius": {
+                                "depth": 1,
+                                "affected_instances": [
+                                    "i-data-source-prod"
+                                ],
+                                "verdict": "high"
+                            },
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.126,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0
+                        },
+                        "relationships": [
+                            {
+                                "relationship_type": "replicates_to",
+                                "target_resource_id": "i-data-source-prod",
+                                "target_resource_type": "ec2",
+                                "target_resource_name": "data-source-prod",
+                                "confidence": 1.0,
+                                "derivation_source": "manual",
+                                "derivation_evidence": {
+                                    "declared_by": "RELATIONSHIP_MODE=manual",
+                                    "declared_at": "2026-03-20T00:00:00Z"
+                                }
+                            }
+                        ],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"data_replica_target_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"data-replica-target-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "NONE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "replicates_to relationship at 100% confidence (manual declaration)",
+                        "Type E relationship \u2014 hard block on any action",
+                        "NEEDS_REVIEW is correct \u2014 replication target must not be stopped",
+                        "blast_radius high: data-source-prod would lose replication",
+                        "redundancy_node=true \u2014 engineer must decide"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A13": {
+                "scenario_id": "A13",
+                "description": "Steady idle + sends_logs_to S3 at 30% \u2014 STOP, Type D excluded, no effect on action",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "STOP",
+                "app_group": "APP-A13",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a013",
+                        "instance_name": "web-server-logging-01",
+                        "instance_type": "t3.small",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "STOP",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 2.4,
+                            "p99_cpu": 3.1,
+                            "max_cpu": 4.7,
+                            "p95_ram": 18.9,
+                            "cv": 0.07,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (2.4%) below thresholds. Logging relationship (Type D) excluded from blast radius check.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0208,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 15.0
+                        },
+                        "relationships": [
+                            {
+                                "relationship_type": "sends_logs_to",
+                                "target_resource_id": "app-logs-bucket",
+                                "target_resource_type": "s3",
+                                "target_resource_name": "app-logs-bucket",
+                                "confidence": 0.3,
+                                "derivation_source": "sg_rule",
+                                "derivation_evidence": {
+                                    "rule": "TCP port 514 outbound",
+                                    "destination": "sg-log-collector-prod"
+                                }
+                            }
+                        ],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"web_server_logging_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.small\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"web-server-logging-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "sends_logs_to S3 at 30% \u2014 Type D relationship",
+                        "Type D (logging) is explicitly excluded from blast radius checks",
+                        "no pipeline_warning raised \u2014 correct per design",
+                        "STOP is correct \u2014 logging relationship has no safety implication"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A14": {
+                "scenario_id": "A14",
+                "description": "Steady idle + reads_from DynamoDB (30%) + sends_logs_to EC2 (30%) \u2014 STOP + pipeline_warning, Type D excluded",
+                "terraform_mode": 1,
+                "expected_llm_behavior": "validate",
+                "expected_action": "STOP",
+                "app_group": "APP-A14",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a014",
+                        "instance_name": "order-service-01",
+                        "instance_type": "t3.medium",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "STOP",
+                            "waste_type": "idle",
+                            "detection_window_days": 7,
+                            "p95_cpu": 3.4,
+                            "p99_cpu": 4.1,
+                            "max_cpu": 5.9,
+                            "p95_ram": 27.2,
+                            "cv": 0.08,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (3.4%) below thresholds. Type A (30%) triggers warning. Type D excluded.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": true,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0416,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 30.05
+                        },
+                        "relationships": [
+                            {
+                                "relationship_type": "reads_from",
+                                "target_resource_id": "orders-table",
+                                "target_resource_type": "dynamodb",
+                                "target_resource_name": "orders",
+                                "confidence": 0.3,
+                                "derivation_source": "iam_policy",
+                                "derivation_evidence": {
+                                    "policy_action": "dynamodb:GetItem",
+                                    "resource_arn": "arn:aws:dynamodb:us-east-1:123456789012:table/orders"
+                                }
+                            },
+                            {
+                                "relationship_type": "sends_logs_to",
+                                "target_resource_id": "i-log-aggregator",
+                                "target_resource_type": "ec2",
+                                "target_resource_name": "log-aggregator-prod",
+                                "confidence": 0.3,
+                                "derivation_source": "sg_rule",
+                                "derivation_evidence": {
+                                    "rule": "TCP port 5044 outbound",
+                                    "destination": "sg-logstash-prod"
+                                }
+                            }
+                        ],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"order_service_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"order-service-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
+                    "expected_pipeline_warning_acknowledged": true,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "two relationships: reads_from DynamoDB (Type A, 30%) + sends_logs_to EC2 (Type D, 30%)",
+                        "reads_from triggers pipeline_warning \u2014 Type A",
+                        "sends_logs_to is Type D \u2014 excluded from blast radius, no warning",
+                        "pipeline_warning_acknowledged must be true",
+                        "STOP correct \u2014 only Type A triggers warning, not block"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
+                }
+            },
+            "A15": {
+                "scenario_id": "A15",
+                "description": "Bursty role derived from name pattern at 30% confidence \u2014 14 days of metrics show CV=0.06 with no burst events \u2014 LLM should override NEEDS_REVIEW and recommend DOWNSIZE as steady",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "override",
+                "expected_action": "DOWNSIZE",
+                "app_group": "APP-A15",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a015",
+                        "instance_name": "data-processor-batch-01",
+                        "instance_type": "c5.2xlarge",
+                        "role": "bursty",
+                        "role_confidence": 0.3,
+                        "role_derivation_source": "name_pattern",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "NEEDS_REVIEW",
+                            "waste_type": "oversized",
+                            "detection_window_days": 14,
+                            "p95_cpu": 8.3,
+                            "p99_cpu": 11.2,
+                            "max_cpu": 15.2,
+                            "p95_ram": 29.4,
+                            "cv": 0.06,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Bursty role: peak CPU (15.2%) below bursty threshold over 14 days. CV=0.06 is inconsistent with expected burst pattern. Role was derived from name pattern at 30% confidence \u2014 cannot safely act on a role mismatch without human confirmation.",
+                            "safety_status": "NEEDS_REVIEW",
+                            "block_reason": "role_metric_mismatch",
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.384,
+                            "recommended_cost_per_hour": 0.192,
+                            "waste_per_month": 138.24
+                        },
+                        "relationships": []
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"data_processor_batch_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.2xlarge\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"data-processor-batch-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "INCORRECT",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": true,
+                    "terraform_change": "Change instance_type from c5.2xlarge to c5.xlarge (instance behaves as steady, not bursty)",
+                    "terraform_must_include": [
+                        "c5.xlarge"
+                    ],
+                    "key_facts": [
+                        "bursty role derived from name pattern at 30% confidence \u2014 low trust",
+                        "CV=0.06 over 14 days is inconsistent with burst behavior (should be >1.5)",
+                        "no burst events observed \u2014 peak CPU 15.2%, P95 8.3%",
+                        "Agent 2 NEEDS_REVIEW is incorrect \u2014 evidence clearly shows steady pattern",
+                        "LLM should override with DOWNSIZE to c5.xlarge treating instance as steady"
+                    ]
+                }
+            }
+        }
+    }
+}

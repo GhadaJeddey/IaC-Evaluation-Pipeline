@@ -1,0 +1,236 @@
+{
+    "tier_d": {
+        "description": "Mode 4 \u2014 Crash RCA from StatusCheckFailed alarm",
+        "scenarios": {
+            "D1": {
+                "scenario_id": "D1",
+                "description": "Java heap OOM \u2014 GC overhead limit exceeded",
+                "terraform_mode": 3,
+                "expected_llm_behavior": "diagnose",
+                "expected_root_cause": "Java heap memory exhaustion under load",
+                "expected_remediation": "Instance resize to larger memory type or JVM heap size increase",
+                "instance": {
+                    "instance_id": "i-d001",
+                    "instance_name": "java-payments-app-01",
+                    "instance_type": "t3.medium",
+                    "alarm_name": "StatusCheckFailed-i-d001",
+                    "alarm_trigger_time": "2026-04-11T08:23:15Z",
+                    "relationships": [
+                        {
+                            "relationship_type": "reads_from",
+                            "target_resource_id": "payments-table",
+                            "target_resource_type": "dynamodb",
+                            "target_resource_name": "payments",
+                            "confidence": 0.3,
+                            "derivation_source": "iam_policy",
+                            "derivation_evidence": {
+                                "policy_action": "dynamodb:GetItem",
+                                "resource_arn": "arn:aws:dynamodb:us-east-1:123456789012:table/payments"
+                            }
+                        }
+                    ]
+                },
+                "log_lines": [
+                    "2026-04-11 08:21:03 INFO  TransactionBatch - Starting batch processing for 15000 transactions",
+                    "2026-04-11 08:21:45 WARN  GCMonitor - GC pause duration: 4821ms (threshold: 1000ms)",
+                    "2026-04-11 08:22:12 WARN  GCMonitor - GC pause duration: 8304ms \u2014 heap pressure critical",
+                    "2026-04-11 08:22:31 WARN  JVM - Heap usage: 98.7% (1984MB / 2010MB)",
+                    "2026-04-11 08:22:44 ERROR JVM - java.lang.OutOfMemoryError: Java heap space",
+                    "2026-04-11 08:22:44 ERROR JVM - at com.payments.processor.TransactionBatch.process(TransactionBatch.java:142)",
+                    "2026-04-11 08:22:44 ERROR JVM - at com.payments.processor.BatchRunner.run(BatchRunner.java:87)",
+                    "2026-04-11 08:22:45 ERROR JVM - Exception in thread 'batch-worker-3' java.lang.OutOfMemoryError: GC overhead limit exceeded",
+                    "2026-04-11 08:22:46 ERROR JVM - Exception in thread 'batch-worker-1' java.lang.OutOfMemoryError: GC overhead limit exceeded",
+                    "2026-04-11 08:22:47 ERROR JVM - Exception in thread 'batch-worker-2' java.lang.OutOfMemoryError: GC overhead limit exceeded",
+                    "2026-04-11 08:22:48 INFO  SpringApplication - Application shutdown initiated",
+                    "2026-04-11 08:22:49 INFO  JVM - JVM terminated with exit code 1"
+                ],
+                "current_terraform": "resource \"aws_instance\" \"java_payments_app_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"java-payments-app-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_root_cause_category": "OOM_HEAP",
+                    "expected_severity": "P1_OUTAGE",
+                    "expected_terraform_suggested": true,
+                    "terraform_change": "Increase instance_type from t3.medium to t3.large or r5.large to provide more RAM for JVM heap",
+                    "key_facts": [
+                        "JVM heap at 98.7% (1984 MB / 2010 MB) before crash",
+                        "GC pauses escalating: 4821 ms \u2192 8304 ms",
+                        "java.lang.OutOfMemoryError: GC overhead limit exceeded on 3 worker threads",
+                        "batch processing 15,000 transactions triggered memory pressure",
+                        "t3.medium has 4 GB RAM \u2014 insufficient for this JVM workload"
+                    ],
+                    "must_not_recommend": null
+                }
+            },
+            "D2": {
+                "scenario_id": "D2",
+                "description": "Disk full \u2014 no space left on device",
+                "terraform_mode": 3,
+                "expected_llm_behavior": "diagnose",
+                "expected_root_cause": "Root volume disk exhaustion from log accumulation",
+                "expected_remediation": "EBS volume expansion or log rotation policy",
+                "instance": {
+                    "instance_id": "i-d002",
+                    "instance_name": "nginx-web-server-01",
+                    "instance_type": "t3.small",
+                    "alarm_name": "StatusCheckFailed-i-d002",
+                    "alarm_trigger_time": "2026-04-11T14:07:42Z",
+                    "relationships": [
+                        {
+                            "relationship_type": "sends_logs_to",
+                            "target_resource_id": "app-logs-bucket",
+                            "target_resource_type": "s3",
+                            "target_resource_name": "app-logs-bucket",
+                            "confidence": 0.3,
+                            "derivation_source": "sg_rule",
+                            "derivation_evidence": {
+                                "rule": "TCP port 514 outbound",
+                                "destination": "sg-log-collector-prod"
+                            }
+                        }
+                    ]
+                },
+                "log_lines": [
+                    "2026-04-11 13:58:21 INFO  nginx - worker process started",
+                    "2026-04-11 14:01:14 WARN  logrotate - /var/log/nginx/access.log: disk usage at 89%",
+                    "2026-04-11 14:03:55 WARN  system - Disk usage at 94% on /dev/xvda1",
+                    "2026-04-11 14:05:31 ERROR nginx - open() '/var/log/nginx/access.log' failed (28: No space left on device)",
+                    "2026-04-11 14:05:31 ERROR nginx - open() '/var/log/nginx/error.log' failed (28: No space left on device)",
+                    "2026-04-11 14:05:32 ERROR system - No space left on device \u2014 write failed on /dev/xvda1",
+                    "2026-04-11 14:06:01 ERROR sshd - error: Could not write entropy file: No space left on device",
+                    "2026-04-11 14:06:44 ERROR kernel - EXT4-fs error (device xvda1): ext4_find_entry: No space left on device",
+                    "2026-04-11 14:07:02 CRIT  system - System call failed: No space left on device",
+                    "2026-04-11 14:07:38 ERROR nginx - worker process exited on signal 6",
+                    "2026-04-11 14:07:41 CRIT  nginx - worker processes failed to start"
+                ],
+                "current_terraform": "resource \"aws_instance\" \"nginx_web_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.small\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 8\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"nginx-web-server-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_root_cause_category": "DISK_FULL",
+                    "expected_severity": "P1_OUTAGE",
+                    "expected_terraform_suggested": true,
+                    "terraform_change": "Increase root_block_device volume_size from 8 GB to at least 30 GB on nginx-web-server-01",
+                    "key_facts": [
+                        "root volume /dev/xvda1 filled to 100% \u2014 nginx could not write logs",
+                        "8 GB root volume is far too small for a production nginx server",
+                        "disk at 89% warning \u2192 94% warning \u2192 full in under 10 minutes",
+                        "EXT4-fs error confirms filesystem-level write failure",
+                        "log rotation was running but could not keep up"
+                    ],
+                    "must_not_recommend": null
+                }
+            },
+            "D3": {
+                "scenario_id": "D3",
+                "description": "CPU credit exhaustion on burstable instance",
+                "terraform_mode": 3,
+                "expected_llm_behavior": "diagnose",
+                "expected_root_cause": "T3 CPU credit balance depleted \u2014 instance throttled to baseline performance",
+                "expected_remediation": "Switch from t3 burstable to fixed-performance instance type (e.g. c5)",
+                "instance": {
+                    "instance_id": "i-d003",
+                    "instance_name": "api-gateway-t3-01",
+                    "instance_type": "t3.medium",
+                    "alarm_name": "StatusCheckFailed-i-d003",
+                    "alarm_trigger_time": "2026-04-11T16:44:09Z",
+                    "relationships": [
+                        {
+                            "relationship_type": "writes_to",
+                            "target_resource_id": "i-backend-api-prod",
+                            "target_resource_type": "ec2",
+                            "target_resource_name": "backend-api-prod",
+                            "confidence": 0.3,
+                            "derivation_source": "sg_rule",
+                            "derivation_evidence": {
+                                "rule": "TCP port 8080 outbound",
+                                "destination": "sg-backend-api-prod"
+                            }
+                        }
+                    ]
+                },
+                "log_lines": [
+                    "2026-04-11 16:30:12 INFO  app - Request throughput: 1240 req/s",
+                    "2026-04-11 16:31:45 WARN  system - CPUCreditBalance: 48.3 (dropping)",
+                    "2026-04-11 16:33:20 WARN  system - CPUCreditBalance: 12.7 \u2014 critical threshold",
+                    "2026-04-11 16:34:01 WARN  app - Response latency P99: 4820ms (threshold: 500ms)",
+                    "2026-04-11 16:34:33 ERROR system - CPUCreditBalance: 0 \u2014 CPU now throttled to baseline (20%)",
+                    "2026-04-11 16:34:34 ERROR app - Request queue depth: 8420 \u2014 workers cannot keep up",
+                    "2026-04-11 16:35:01 ERROR app - Connection timeout: upstream response exceeded 30s",
+                    "2026-04-11 16:35:01 ERROR app - Connection timeout: upstream response exceeded 30s",
+                    "2026-04-11 16:35:02 ERROR app - Connection timeout: upstream response exceeded 30s",
+                    "2026-04-11 16:40:11 CRIT  app - Health check failed: /health returned 504 Gateway Timeout",
+                    "2026-04-11 16:44:07 CRIT  system - Process unresponsive \u2014 StatusCheck failed"
+                ],
+                "current_terraform": "resource \"aws_instance\" \"api_gateway_t3_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"api-gateway-t3-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_root_cause_category": "CPU_CREDITS",
+                    "expected_severity": "P1_OUTAGE",
+                    "expected_terraform_suggested": true,
+                    "terraform_change": "Change instance_type from t3.medium to c5.large \u2014 fixed-performance instance, NOT t3.unlimited",
+                    "must_not_recommend": "t3.unlimited",
+                    "key_facts": [
+                        "CPUCreditBalance dropped from 48.3 \u2192 12.7 \u2192 0 over 14 minutes",
+                        "CPU throttled to 20% baseline after credits exhausted",
+                        "request queue depth reached 8,420 \u2014 workers could not keep up",
+                        "P99 latency jumped to 4820 ms (threshold 500 ms)",
+                        "fix must be fixed-performance instance (c5/m5) \u2014 t3.unlimited still uses credits"
+                    ]
+                }
+            },
+            "D4": {
+                "scenario_id": "D4",
+                "description": "Linux OOM killer invoked \u2014 process killed by kernel",
+                "terraform_mode": 3,
+                "expected_llm_behavior": "diagnose",
+                "expected_root_cause": "Linux kernel OOM killer terminated the application process due to memory pressure",
+                "expected_remediation": "Instance resize to larger memory type",
+                "instance": {
+                    "instance_id": "i-d004",
+                    "instance_name": "ml-inference-server-01",
+                    "instance_type": "t3.large",
+                    "alarm_name": "StatusCheckFailed-i-d004",
+                    "alarm_trigger_time": "2026-04-11T21:15:33Z",
+                    "relationships": [
+                        {
+                            "relationship_type": "reads_from",
+                            "target_resource_id": "ml-models-bucket",
+                            "target_resource_type": "s3",
+                            "target_resource_name": "ml-models-bucket",
+                            "confidence": 0.3,
+                            "derivation_source": "iam_policy",
+                            "derivation_evidence": {
+                                "policy_action": "s3:GetObject",
+                                "resource_arn": "arn:aws:s3:::ml-models-bucket/*"
+                            }
+                        }
+                    ]
+                },
+                "log_lines": [
+                    "2026-04-11 21:10:44 INFO  inference - Loading model: bert-large-uncased (1.34 GB)",
+                    "2026-04-11 21:11:22 INFO  inference - Model loaded. Processing batch queue: 3200 items",
+                    "2026-04-11 21:12:55 WARN  system - MemAvailable: 214MB \u2014 memory pressure high",
+                    "2026-04-11 21:13:14 WARN  system - MemAvailable: 87MB \u2014 critical",
+                    "2026-04-11 21:13:28 WARN  kernel - kswapd: memory compaction needed",
+                    "2026-04-11 21:13:41 CRIT  kernel - Out of memory: Kill process 3847 (python3) score 892 or sacrifice child",
+                    "2026-04-11 21:13:41 CRIT  kernel - Killed process 3847 (python3) total-vm:6842112kB, anon-rss:5901324kB",
+                    "2026-04-11 21:13:42 ERROR inference - Worker process terminated unexpectedly (signal 9)",
+                    "2026-04-11 21:13:42 ERROR inference - SIGKILL received \u2014 process group 3847 killed by OOM",
+                    "2026-04-11 21:14:10 ERROR systemd - inference-worker.service: Main process exited, code=killed, status=9/KILL",
+                    "2026-04-11 21:15:31 CRIT  system - StatusCheck failed: application not responding"
+                ],
+                "current_terraform": "resource \"aws_instance\" \"ml_inference_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"ml-inference-server-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_root_cause_category": "OOM_KERNEL",
+                    "expected_severity": "P1_OUTAGE",
+                    "expected_terraform_suggested": true,
+                    "terraform_change": "Increase instance_type from t3.large to r5.large or m5.xlarge for ML model inference workload",
+                    "key_facts": [
+                        "kernel OOM killer invoked: killed process 3847 (python3)",
+                        "anon-rss 5,901,324 kB (~5.9 GB) \u2014 model loaded into anonymous memory",
+                        "bert-large-uncased model is 1.34 GB; batch of 3,200 items pushed total RAM over limit",
+                        "t3.large has 8 GB RAM \u2014 insufficient for this ML inference workload",
+                        "SIGKILL signal 9 \u2014 not a graceful shutdown, process was forcibly killed by kernel"
+                    ],
+                    "must_not_recommend": null
+                }
+            }
+        }
+    }
+}

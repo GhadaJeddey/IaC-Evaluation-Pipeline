@@ -1,0 +1,246 @@
+{
+    "tier_c": {
+        "description": "Non-EC2 findings \u2014 log groups, ghost resources, S3",
+        "scenarios": {
+            "C1": {
+                "scenario_id": "C1",
+                "description": "CloudWatch log group with no retention policy",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "SET_RETENTION",
+                "finding": {
+                    "finding_type": "SET_RETENTION",
+                    "resource_type": "cloudwatch_log_group",
+                    "log_group_name": "/aws/lambda/payment-processor",
+                    "log_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/payment-processor",
+                    "retention_days": null,
+                    "ingestion_bytes_per_day": 52428800,
+                    "ingestion_gb_per_month": 1.57,
+                    "estimated_cost_per_month": 0.76,
+                    "detection_reason": "Log group /aws/lambda/payment-processor has no retention policy \u2014 logs accumulate indefinitely."
+                },
+                "agent2_decision": {
+                    "action": "SET_RETENTION",
+                    "waste_type": "no_retention",
+                    "detection_window_days": null,
+                    "detection_reason": "Log group /aws/lambda/payment-processor has no retention_in_days set \u2014 logs accumulate indefinitely at $0.76/month.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_cloudwatch_log_group\" \"app_logs_prod\" {\n  name = \"/aws/application/app-logs-prod\"\n  # retention_in_days not set \u2014 logs retained indefinitely\n\n  tags = {\n    Name        = \"app-logs-prod\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_cloudwatch_log_group",
+                        "retention_in_days"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "log group /aws/lambda/payment-processor has no retention policy",
+                        "logs accumulate indefinitely \u2014 1.57 GB/month at $0.76/month cost",
+                        "fix: add retention_in_days to existing aws_cloudwatch_log_group resource",
+                        "no new resources required \u2014 simple attribute addition"
+                    ]
+                }
+            },
+            "C2": {
+                "scenario_id": "C2",
+                "description": "CloudWatch log group with high ingestion volume \u2014 S3 archival recommended",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "override",
+                "expected_action": "S3_ARCHIVAL",
+                "finding": {
+                    "finding_type": "S3_ARCHIVAL",
+                    "resource_type": "cloudwatch_log_group",
+                    "log_group_name": "/aws/eks/production-cluster",
+                    "log_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/eks/production-cluster",
+                    "retention_days": 90,
+                    "ingestion_bytes_per_day": 429916160,
+                    "ingestion_gb_per_month": 12.87,
+                    "estimated_cost_per_month": 6.31,
+                    "detection_reason": "Log group /aws/eks/production-cluster ingests 12.87 GB/month \u2014 exceeds 10 GB/month threshold. S3 archival recommended."
+                },
+                "agent2_decision": {
+                    "action": "S3_ARCHIVAL",
+                    "waste_type": "high_log_volume",
+                    "detection_window_days": null,
+                    "detection_reason": "Log group /aws/eks/production-cluster ingests 12.87 GB/month \u2014 exceeds 10 GB/month threshold. S3 subscription filter archival recommended.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_cloudwatch_log_group\" \"high_volume_logs\" {\n  name              = \"/aws/application/high-volume-logs\"\n  retention_in_days = 90\n\n  tags = {\n    Name        = \"high-volume-logs\"\n    Environment = \"production\"\n  }\n}\n# No S3 export subscription configured",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_cloudwatch_log_subscription_filter",
+                        "aws_iam_role",
+                        "aws_s3_bucket"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "12.87 GB/month ingestion exceeds 10 GB/month threshold",
+                        "S3 archival via subscription filter is the correct action",
+                        "requires 3 new resources: subscription filter + S3 bucket + IAM role",
+                        "existing log group retention stays \u2014 subscription is additive",
+                        "aws_caller_identity must be used \u2014 no hardcoded account IDs"
+                    ]
+                }
+            },
+            "C3": {
+                "scenario_id": "C3",
+                "description": "Ghost EIP \u2014 unattached for more than 48 hours",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DESTROY",
+                "finding": {
+                    "finding_type": "DESTROY",
+                    "resource_type": "eip",
+                    "resource_id": "eipalloc-0a1b2c3d4e5f6a7b8",
+                    "public_ip": "54.23.11.204",
+                    "state": "unattached",
+                    "unattached_since_days": 12,
+                    "cost_per_month": 3.6,
+                    "detection_reason": "EIP 54.23.11.204 unattached for 12 days \u2014 confirmed ghost resource."
+                },
+                "agent2_decision": {
+                    "action": "DESTROY",
+                    "waste_type": "ghost_resource",
+                    "detection_window_days": 12,
+                    "detection_reason": "EIP 54.23.11.204 unattached for 12 days \u2014 confirmed ghost resource. No data loss risk: EIP carries no data.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_eip\" \"ghost_eip_0a1b2c3d\" {\n  domain = \"vpc\"\n\n  tags = {\n    Name = \"ghost-eip-0a1b2c3d\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_eip",
+                        "lifecycle"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "EIP 54.23.11.204 unattached for 12 days \u2014 confirmed ghost",
+                        "$3.60/month wasted on unused allocation",
+                        "EIP has no data \u2014 release is safe",
+                        "lifecycle prevent_destroy = false required to allow destroy",
+                        "FinOpsAction tag must be added"
+                    ]
+                }
+            },
+            "C4": {
+                "scenario_id": "C4",
+                "description": "Ghost EBS volume \u2014 available state for more than 48 hours",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DESTROY",
+                "finding": {
+                    "finding_type": "DESTROY",
+                    "resource_type": "ebs_volume",
+                    "resource_id": "vol-0a1b2c3d4e5f6a7b8",
+                    "volume_type": "gp3",
+                    "size_gb": 100,
+                    "state": "available",
+                    "unattached_since_days": 7,
+                    "cost_per_month": 8.0,
+                    "detection_reason": "EBS volume vol-0a1b2c3d4e5f6a7b8 (100 GB gp3) in available state for 7 days \u2014 confirmed ghost resource. Data loss warning: volume contents will be permanently deleted."
+                },
+                "agent2_decision": {
+                    "action": "DESTROY",
+                    "waste_type": "ghost_resource",
+                    "detection_window_days": 7,
+                    "detection_reason": "EBS volume vol-0a1b2c3d4e5f6a7b8 (100 GB gp3) in available state for 7 days \u2014 confirmed ghost resource. DATA LOSS: volume contents will be permanently deleted.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": true,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_ebs_volume\" \"ghost_volume_0a1b2c3d\" {\n  availability_zone = \"us-east-1a\"\n  size              = 100\n  type              = \"gp3\"\n  encrypted         = false\n\n  tags = {\n    Name = \"ghost-volume-0a1b2c3d\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_ebs_volume",
+                        "lifecycle"
+                    ],
+                    "expected_data_loss_acknowledged": true,
+                    "key_facts": [
+                        "EBS volume vol-0a1b2c3d4e5f6a7b8 (100 GB gp3) unattached 7 days",
+                        "$8.00/month wasted",
+                        "DATA LOSS: volume contents permanently deleted \u2014 must be explicitly acknowledged",
+                        "data_loss_acknowledged field must be true in response",
+                        "lifecycle prevent_destroy = false required",
+                        "business_justification must explain irreversibility"
+                    ]
+                }
+            },
+            "C5": {
+                "scenario_id": "C5",
+                "description": "S3 bucket with cold data \u2014 Glacier transition recommended",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "override",
+                "expected_action": "GLACIER_TRANSITION",
+                "finding": {
+                    "finding_type": "GLACIER_TRANSITION",
+                    "resource_type": "s3_bucket",
+                    "bucket_name": "company-data-archive-prod",
+                    "bucket_arn": "arn:aws:s3:::company-data-archive-prod",
+                    "total_objects": 84320,
+                    "total_size_gb": 1842.6,
+                    "objects_older_than_90d": 71423,
+                    "objects_older_than_90d_pct": 84.7,
+                    "has_lifecycle_policy": false,
+                    "estimated_current_cost_per_month": 42.38,
+                    "estimated_glacier_cost_per_month": 8.29,
+                    "estimated_savings_per_month": 34.09,
+                    "detection_reason": "84.7% of objects in company-data-archive-prod are older than 90 days with no lifecycle policy. Glacier Instant Retrieval transition recommended."
+                },
+                "agent2_decision": {
+                    "action": "GLACIER_TRANSITION",
+                    "waste_type": "cold_data",
+                    "detection_window_days": 90,
+                    "detection_reason": "84.7% of objects in company-data-archive-prod are older than 90 days with no lifecycle policy \u2014 Glacier Instant Retrieval transition saves $34.09/month.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_s3_bucket\" \"company_data_archive_prod\" {\n  bucket = \"company-data-archive-prod\"\n\n  tags = {\n    Name        = \"company-data-archive-prod\"\n    Environment = \"production\"\n  }\n}\n# No lifecycle configuration \u2014 all objects stored in S3 Standard",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_s3_bucket_lifecycle_configuration",
+                        "GLACIER"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "84.7% of 84,320 objects older than 90 days",
+                        "no lifecycle policy currently set",
+                        "Glacier Instant Retrieval transition at 90 days saves $34.09/month",
+                        "aws_s3_bucket_lifecycle_configuration must be a separate resource (not inline)",
+                        "transition noncurrent versions too if applicable"
+                    ]
+                }
+            }
+        }
+    }
+}
