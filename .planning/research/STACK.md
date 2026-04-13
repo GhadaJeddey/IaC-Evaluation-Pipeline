@@ -15,9 +15,9 @@
 
 | Library | Version (pinned floor) | Purpose | Confidence |
 |---------|----------------------|---------|-----------|
-| boto3 | >= 1.34.x | AWS API calls (EC2, CloudWatch, S3, Lambda, resource tagging) | HIGH |
+| boto3 | >= 1.34.x | AWS API calls (EC2, CloudWatch, S3) | HIGH |
 | botocore | >= 1.34.x (auto-pinned by boto3) | Core HTTP engine; never pin separately | HIGH |
-| boto3-stubs[ec2,cloudwatch,s3,lambda,resourcegroupstaggingapi,sts] | same as boto3 | Type stubs for IDE safety — catches wrong parameter names before runtime | HIGH |
+| boto3-stubs[ec2,cloudwatch,s3,sts] | same as boto3 | Type stubs for IDE safety — catches wrong parameter names before runtime | HIGH |
 
 **Why synchronous boto3, not aiobotocore:**
 
@@ -167,43 +167,40 @@ safe_order = list(ts.static_order())
 
 ## LLM Integration (Groq + Ollama)
 
-### Recommended approach: LiteLLM as the unified interface
+### Recommended approach: direct SDKs with a thin wrapper
 
-**Recommendation:** Use `litellm` as the single abstraction layer over Groq and Ollama. It provides a consistent `completion()` interface, handles provider-specific quirks, and makes model swapping a config change.
+**Decision:** Use `groq` SDK (primary) and `ollama` Python client (fallback) directly. A ~25-line wrapper function handles the provider switch. LiteLLM was rejected — it is a heavy, fast-moving dependency that adds no value for a 2-provider setup.
 
 | Library | Version | Purpose | Confidence |
 |---------|---------|---------|-----------|
-| litellm | >= 1.40.x | Unified LLM client: Groq + Ollama + any future provider | HIGH |
-| groq | >= 0.9.x | Direct Groq SDK (fallback if LiteLLM has issues; keep as dependency) | HIGH |
+| groq | >= 0.9.x | Direct Groq SDK — primary LLM provider | HIGH |
+| ollama | >= 0.3.x | Ollama Python client — local fallback on Groq 429 | HIGH |
 
-**Why LiteLLM over writing your own abstraction:**
-- Handles Groq's `application/json` streaming format and Ollama's different response shape transparently
-- Rate limit handling: built-in `RateLimitError` catching with configurable fallback routing
-- Model aliasing: define `"primary"` → `"groq/llama-3.3-70b-versatile"` and `"fallback"` → `"ollama/qwen2.5-coder:7b"` in config
-- The 1,000 RPD Groq constraint is managed by catching `litellm.RateLimitError` and routing to Ollama
-
-**Fallback pattern:**
+**Wrapper pattern:**
 
 ```python
-import litellm
-from litellm import completion, RateLimitError
+# agents/llm_client.py
+from groq import Groq, RateLimitError as GroqRateLimitError
+import ollama
+from app.config import settings
 
-PRIMARY_MODEL = "groq/llama-3.3-70b-versatile"  # or qwen/qwen3-32b when available on Groq
-FALLBACK_MODEL = "ollama/qwen2.5-coder:7b"       # local Ollama
+_groq = Groq()  # reads GROQ_API_KEY from env
 
-def generate_with_fallback(messages: list[dict], **kwargs) -> str:
+def completion(messages: list[dict]) -> str:
     try:
-        resp = completion(model=PRIMARY_MODEL, messages=messages, **kwargs)
-        return resp.choices[0].message.content
-    except RateLimitError:
-        # Groq 1,000 RPD exhausted — fall to Ollama silently
-        resp = completion(
-            model=FALLBACK_MODEL,
-            api_base="http://localhost:11434",  # or ollama service in Docker Compose
+        resp = _groq.chat.completions.create(
+            model=settings.groq_model,      # e.g. "llama-3.3-70b-versatile"
             messages=messages,
-            **kwargs,
+            timeout=60,                      # Groq cold-start up to 30s
         )
         return resp.choices[0].message.content
+    except GroqRateLimitError:
+        # hard stop on autonomous Groq retry — fall to local Ollama
+        resp = ollama.chat(
+            model=settings.ollama_model,     # e.g. "qwen2.5-coder:7b"
+            messages=messages,
+        )
+        return resp["message"]["content"]
 ```
 
 **Result caching (critical for 1,000 RPD constraint):**
@@ -222,7 +219,8 @@ def cache_key(model: str, messages: list[dict]) -> str:
 **What NOT to use:**
 - LangChain — adds 300+ transitive dependencies, introduces abstractions (chains, agents) that fight your deterministic architecture; your agent logic is simple enough that LangChain's agent loop would be a liability, not an asset
 - LlamaIndex — built for RAG/document retrieval, not for this structured Terraform generation use case
-- OpenAI SDK directly — works for Groq (Groq is OpenAI-API-compatible), but doesn't handle Ollama; LiteLLM subsumes it
+- LiteLLM — heavy dependency (300+ MB), fast-moving with breaking changes, adds no value for a 2-provider setup; the thin wrapper above replaces it entirely
+- OpenAI SDK directly — works for Groq (OpenAI-API-compatible) but doesn't handle Ollama; no reason to add it when `groq` SDK is the official client
 
 ### Groq model selection (at time of research)
 
@@ -542,12 +540,11 @@ localstack:
   ports:
     - "4566:4566"
   environment:
-    - SERVICES=ec2,s3,cloudwatch,logs,lambda,sqs,resourcegroupstaggingapi
+    - SERVICES=ec2,s3,cloudwatch,logs,sqs
     - DEBUG=0
     - PERSISTENCE=1   # saves state to /var/lib/localstack/state
   volumes:
     - localstack_data:/var/lib/localstack
-    - /var/run/docker.sock:/var/run/docker.sock  # required for Lambda execution
 ```
 
 Add a `fixtures/seed_localstack.py` script that creates test EC2 instances, injects CloudWatch metrics, creates log groups — run once after `docker compose up`.
@@ -617,7 +614,7 @@ LocalStack Community does not enforce IAM permissions. This means your Agent 4 s
 
 # AWS
 boto3 = ">=1.34,<2.0"
-boto3-stubs = {extras = ["ec2","cloudwatch","s3","lambda","resourcegroupstaggingapi","sts"], version = ">=1.34"}
+boto3-stubs = {extras = ["ec2","cloudwatch","s3","sts"], version = ">=1.34"}
 
 # FastAPI
 fastapi = ">=0.111,<1.0"
@@ -635,8 +632,8 @@ redis = {extras = ["hiredis"], version = ">=5.0"}
 rq = ">=1.16"
 
 # LLM
-litellm = ">=1.40"
 groq = ">=0.9"
+ollama = ">=0.3"
 
 # Validation / config
 pydantic = ">=2.7"
@@ -673,7 +670,8 @@ Use **Python 3.12** (current stable at cutoff). It is supported by all listed li
 | SQLAlchemy | >=2.0.30 | HIGH | `pip index versions sqlalchemy` |
 | asyncpg | >=0.29 | HIGH | `pip index versions asyncpg` |
 | TimescaleDB | 2.14.x on Postgres 16 | MEDIUM | Neon dashboard shows extension version |
-| litellm | >=1.40 | MEDIUM | `pip index versions litellm` (changes fast) |
+| groq | >=0.9 | HIGH | `pip index versions groq` |
+| ollama | >=0.3 | HIGH | `pip index versions ollama` |
 | Checkov | >=3.2 | MEDIUM | `checkov --version` |
 | Terraform | >=1.8 | MEDIUM | `terraform version` |
 | conftest/OPA | >=0.50 / >=0.65 | LOW | Check OpenPolicyAgent releases |
@@ -686,7 +684,7 @@ Use **Python 3.12** (current stable at cutoff). It is supported by all listed li
 
 ```
 Agent 1 (Collector)
-  boto3 → CloudWatch, EC2, S3, Lambda, ResourceTagging
+  boto3 → CloudWatch, EC2, S3
   SQLAlchemy (async) → TimescaleDB metrics hypertable
   APScheduler / K8s CronJob trigger
 

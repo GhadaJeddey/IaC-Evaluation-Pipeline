@@ -1,0 +1,801 @@
+{
+  "run_timestamp": "2026-04-13T14:45:31.695216+00:00",
+  "scenarios_file": "/home/ghada/projects/PFA/eval-phase2/validators/checkov/checkov_test_scenarios.json",
+  "enforce_checks": [
+    "CKV_AWS_3",
+    "CKV_AWS_19",
+    "CKV_AWS_20",
+    "CKV_AWS_93",
+    "CKV_AWS_338",
+    "CKV_AWS_1",
+    "CKV_AWS_40",
+    "CKV_AWS_274"
+  ],
+  "suppress_checks": [
+    "CKV_AWS_79",
+    "CKV_AWS_18",
+    "CKV_AWS_144",
+    "CKV2_AWS_62",
+    "CKV_AWS_145"
+  ],
+  "summary": {
+    "total": 25,
+    "passed": 25,
+    "failed": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "scenario_id": "EBS_001",
+      "category": "ebs",
+      "description": "Encrypted EBS volume \u2014 should pass",
+      "explanation": "When Agent 4 performs a DOWNSIZE action it may recreate an EBS volume. This is what a correct LLM response looks like: encrypted = true is explicitly set. CKV_AWS_3 should pass.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "1/1 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_3"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1 (CKV_AWS_3). Passes: 1. Score = 1/1 = 1.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "EBS_002",
+      "category": "ebs",
+      "description": "Unencrypted EBS volume with explicit encrypted=false \u2014 should fail",
+      "explanation": "LLM explicitly set encrypted = false. This is the common mistake pattern when an LLM copies a template that was originally unencrypted. CKV_AWS_3 must catch this.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.0,
+        "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_3'] \u2014 resources: ['aws_ebs_volume.data']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.0,
+        "expected_failed_check_ids": [
+          "CKV_AWS_3"
+        ],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. Fails: 1. Score = 0/1 = 0.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_3"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "EBS_003",
+      "category": "ebs",
+      "description": "EBS volume with no encryption field \u2014 should fail",
+      "explanation": "LLM omitted the encrypted attribute entirely. The AWS default for EBS is unencrypted. Checkov treats the absence of encrypted = true as a failure of CKV_AWS_3. This tests whether the runner catches silent omissions, not just explicit false values.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.0,
+        "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_3'] \u2014 resources: ['aws_ebs_volume.data']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.0,
+        "expected_failed_check_ids": [
+          "CKV_AWS_3"
+        ],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "AWS default is unencrypted. Omitting the field is equivalent to encrypted = false. CKV_AWS_3 should fail."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_3"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "S3_001",
+      "category": "s3",
+      "description": "Fully compliant S3 state bucket \u2014 should pass all three S3 checks",
+      "explanation": "The platform stores Terraform remote state in S3. This scenario represents a correctly generated state bucket: SSE-S3 encryption is enabled (CKV_AWS_19), no public ACL is set so it defaults to private (CKV_AWS_20), and access logging is wired to a log bucket (CKV_AWS_93). All three enforce checks should pass.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "3/3 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_20",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 3. All pass. Score = 3/3 = 1.0. No explicit ACL means default private \u2014 CKV_AWS_20 passes."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "S3_002",
+      "category": "s3",
+      "description": "S3 bucket missing server-side encryption \u2014 checkov v3 does not flag absent SSE resource",
+      "explanation": "LLM generated an S3 bucket with access logging correctly wired but forgot the SSE encryption configuration resource. In checkov v3 (tested against v3.2.520), CKV_AWS_19 is evaluated on aws_s3_bucket itself and passes when there is no inline SSE block \u2014 absence of the separate aws_s3_bucket_server_side_encryption_configuration resource is not treated as a failure. All three checks pass.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "3/3 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_20",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: CKV_AWS_19 passes on aws_s3_bucket when no inline SSE config is present \u2014 the check does not flag the absence of a separate aws_s3_bucket_server_side_encryption_configuration resource. Total checks = 3. All pass. Score = 1.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "S3_003",
+      "category": "s3",
+      "description": "S3 bucket with public-read ACL \u2014 should fail CKV_AWS_20",
+      "explanation": "LLM generated a bucket with acl = public-read. This is catastrophic for a Terraform state bucket \u2014 anyone on the internet can read infrastructure state including resource ARNs and sometimes credentials. CKV_AWS_20 must catch this. SSE and logging are correctly set.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.6667,
+        "details": "2/3 checks passed \u2014 failed IDs: ['CKV_AWS_20'] \u2014 resources: ['aws_s3_bucket.state']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.6667,
+        "expected_failed_check_ids": [
+          "CKV_AWS_20"
+        ],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 3. Fails: 1. Score = round(2/3, 4) = 0.6667. The acl attribute is deprecated in provider v4+ but Checkov still checks it for static analysis."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_20"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "S3_004",
+      "category": "s3",
+      "description": "S3 bucket missing access logging \u2014 checkov v3 does not flag absent logging resource",
+      "explanation": "LLM generated a state bucket with SSE and private ACL but no access logging resource. In checkov v3 (tested against v3.2.520), CKV_AWS_93 is evaluated on aws_s3_bucket itself and passes when there is no inline logging block \u2014 absence of a separate aws_s3_bucket_logging resource is not treated as a failure. All three checks pass.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "3/3 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_20",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: CKV_AWS_93 passes on aws_s3_bucket when no inline logging block is present \u2014 the check does not flag the absence of a separate aws_s3_bucket_logging resource. Total checks = 3. All pass. Score = 1.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "S3_005",
+      "category": "s3",
+      "description": "S3 bucket failing all three checks \u2014 worst-case LLM output",
+      "explanation": "LLM generated a bare S3 bucket with public-read ACL and no encryption or logging. This represents the worst possible Terraform a model could produce for the state bucket. All three S3 enforce checks should fail.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.6667,
+        "details": "2/3 checks passed \u2014 failed IDs: ['CKV_AWS_20'] \u2014 resources: ['aws_s3_bucket.state']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.6667,
+        "expected_failed_check_ids": [
+          "CKV_AWS_20"
+        ],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: only CKV_AWS_20 fails (acl = public-read). CKV_AWS_19 and CKV_AWS_93 pass on aws_s3_bucket \u2014 absence of SSE/logging config is not flagged as failure. Total checks = 3. Fails: 1. Score = round(2/3, 4) = 0.6667."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_20"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "CW_001",
+      "category": "cloudwatch",
+      "description": "CloudWatch log group with retention_in_days = 365 \u2014 should pass",
+      "explanation": "Agent 3 generates this Terraform in response to a SET_RETENTION finding from Agent 2. The LLM correctly set retention to exactly 365 days \u2014 the minimum compliant value per CKV_AWS_338. This tests whether the runner correctly identifies a passing SET_RETENTION fix.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "1/1 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_338"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. CKV_AWS_338 requires retention >= 365. Score = 1/1 = 1.0. Values of 400 or 731 would also pass."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "CW_002",
+      "category": "cloudwatch",
+      "description": "CloudWatch log group with retention_in_days = 7 \u2014 should fail",
+      "explanation": "LLM generated a SET_RETENTION fix but used 7 days instead of 365. This is a plausible hallucination: the model may have confused 'set some retention' with 'set compliant retention'. The fix makes the finding worse, not better. CKV_AWS_338 must catch values below 365.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.0,
+        "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_338'] \u2014 resources: ['aws_cloudwatch_log_group.app_logs']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.0,
+        "expected_failed_check_ids": [
+          "CKV_AWS_338"
+        ],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. 7 < 365, so CKV_AWS_338 fails. Score = 0/1 = 0.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_338"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "CW_003",
+      "category": "cloudwatch",
+      "description": "CloudWatch log group with no retention field \u2014 should fail",
+      "explanation": "LLM generated a log group resource but omitted retention_in_days entirely. Without it, AWS never purges the log group. Ironically this reproduces the original finding (no retention policy) inside the fix itself. CKV_AWS_338 must fail when the field is absent.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.0,
+        "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_338'] \u2014 resources: ['aws_cloudwatch_log_group.app_logs']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.0,
+        "expected_failed_check_ids": [
+          "CKV_AWS_338"
+        ],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. Omitted retention is treated as non-compliant by CKV_AWS_338. Score = 0/1 = 0.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_338"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "IAM_001",
+      "category": "iam",
+      "description": "Correctly scoped Agent 4 role \u2014 should pass all three IAM checks",
+      "explanation": "This is the ideal IAM Terraform for Agent 4's execution role. Specific actions only (ec2:StopInstances, ec2:ModifyInstanceAttribute) satisfies CKV_AWS_1. Policy is attached to a role, not a user, satisfying CKV_AWS_40. No AdministratorAccess managed policy is attached, satisfying CKV_AWS_274.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "2/2 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_1",
+          "CKV_AWS_40",
+          "CKV_AWS_274"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 3 (policy doc present triggers CKV_AWS_1; role policy triggers CKV_AWS_40; no admin attachment triggers CKV_AWS_274). Score = 3/3 = 1.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "IAM_002",
+      "category": "iam",
+      "description": "IAM policy with wildcard ec2:* action \u2014 CKV_AWS_1 does not flag service wildcards",
+      "explanation": "LLM generated a role with ec2:* instead of specific actions. CKV_AWS_1 only flags full [\"*\"] administrative wildcards, not service-scoped wildcards like [\"ec2:*\"]. The check passes. CKV_AWS_40 does not apply to aws_iam_role_policy (only to aws_iam_user_policy). Only CKV_AWS_1 on the policy document and CKV_AWS_274 on the role run \u2014 both pass.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "2/2 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_1",
+          "CKV_AWS_274"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: CKV_AWS_1 only triggers on [\"*\"] full admin wildcards \u2014 [\"ec2:*\"] is a service-scoped wildcard and passes. CKV_AWS_40 does not apply to aws_iam_role_policy. Total checks = 2. All pass. Score = 1.0."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "IAM_003",
+      "category": "iam",
+      "description": "IAM policy attached directly to a user \u2014 should fail CKV_AWS_40",
+      "explanation": "LLM generated a user and attached a policy directly to it via aws_iam_user_policy. Agent 4 should operate as an assumed role, never as a named IAM user with pinned policies. CKV_AWS_40 must catch this. The actions are specific (CKV_AWS_1 passes) and there is no admin policy (CKV_AWS_274 passes).",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.5,
+        "details": "1/2 checks passed \u2014 failed IDs: ['CKV_AWS_40'] \u2014 resources: ['aws_iam_user_policy.agent4']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.5,
+        "expected_failed_check_ids": [
+          "CKV_AWS_40"
+        ],
+        "expected_passed_check_ids": [
+          "CKV_AWS_1"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: CKV_AWS_274 does not run \u2014 it only applies to aws_iam_role_policy_attachment, which is absent here. CKV_AWS_1 runs on aws_iam_policy_document and passes (non-wildcard actions). CKV_AWS_40 runs on aws_iam_user_policy and fails. Total checks = 2. Fails: 1. Score = 0.5."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_40"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "IAM_004",
+      "category": "iam",
+      "description": "Role with AdministratorAccess managed policy \u2014 should fail CKV_AWS_274",
+      "explanation": "LLM generated a role with the AdministratorAccess managed policy attached. This crosses the hard security boundary: Agent 4 must never have full admin access. There is no aws_iam_policy_document here so CKV_AWS_1 does not apply. There is no user policy so CKV_AWS_40 does not apply. Only CKV_AWS_274 is relevant \u2014 and it must fail.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.5,
+        "details": "1/2 checks passed \u2014 failed IDs: ['CKV_AWS_274'] \u2014 resources: ['aws_iam_role_policy_attachment.admin']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.5,
+        "expected_failed_check_ids": [
+          "CKV_AWS_274"
+        ],
+        "expected_passed_check_ids": [
+          "CKV_AWS_274"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: CKV_AWS_274 runs on BOTH aws_iam_role (PASS \u2014 the role resource itself is fine) and aws_iam_role_policy_attachment (FAIL \u2014 AdministratorAccess policy). Total checks = 2. Fails: 1. Score = 0.5."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_274"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "IAM_005",
+      "category": "iam",
+      "description": "All three IAM violations combined \u2014 worst-case role output",
+      "explanation": "LLM generated a role that violates all three IAM enforce checks at once: wildcard action (CKV_AWS_1), direct user policy attachment (CKV_AWS_40), and AdministratorAccess on the role (CKV_AWS_274). This represents the most dangerous possible IAM Terraform and should score 0.0.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.25,
+        "details": "1/4 checks passed \u2014 failed IDs: ['CKV_AWS_40', 'CKV_AWS_274', 'CKV_AWS_1'] \u2014 resources: ['aws_iam_user_policy.agent4', 'aws_iam_role_policy_attachment.admin', 'aws_iam_policy_document.agent4']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.25,
+        "expected_failed_check_ids": [
+          "CKV_AWS_1",
+          "CKV_AWS_40",
+          "CKV_AWS_274"
+        ],
+        "expected_passed_check_ids": [
+          "CKV_AWS_274"
+        ],
+        "runner_early_exit": false,
+        "notes": "Checkov v3: CKV_AWS_274 runs on both aws_iam_role (PASS) and aws_iam_role_policy_attachment (FAIL). CKV_AWS_1 fails on aws_iam_policy_document ([\"*\"] wildcard). CKV_AWS_40 fails on aws_iam_user_policy. Total checks = 4. Fails: 3. Score = round(1/4, 4) = 0.25."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_40",
+          "CKV_AWS_274",
+          "CKV_AWS_1"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "SUP_001",
+      "category": "suppress_validation",
+      "description": "EC2 instance with termination protection disabled \u2014 CKV_AWS_79 must be suppressed",
+      "explanation": "TERMINATE is a valid remediation action in this platform. The LLM correctly generated an EC2 instance with disable_api_termination = false so Agent 4 can terminate it. CKV_AWS_79 (requires termination protection = true) is in the suppress list and must NOT run. No other enforce checks apply to aws_instance resources, so total = 0 and the runner returns passed = true, score = 1.0 via the no-applicable-checks branch.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "No applicable Checkov checks for this resource type"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "CKV_AWS_79 is suppressed \u2014 not in the enforce list. No enforce checks apply to aws_instance. total = 0 \u2192 runner short-circuits to passed=True, score=1.0. If CKV_AWS_79 appears in failed_checks, the suppress logic is broken."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "SUP_002",
+      "category": "suppress_validation",
+      "description": "S3 with SSE-S3 (AES256) instead of KMS CMK \u2014 CKV_AWS_145 must be suppressed",
+      "explanation": "The platform uses SSE-S3 (AES256) for the state bucket instead of KMS CMK because KMS CMK costs money per API call and the project runs on a free-tier budget. CKV_AWS_145 (which demands KMS CMK) is in the suppress list. The check that matters is CKV_AWS_19, which passes with AES256. This scenario verifies that suppressing CKV_AWS_145 does not accidentally suppress CKV_AWS_19.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "3/3 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_20",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "CKV_AWS_145 is suppressed. AES256 satisfies CKV_AWS_19. If this scenario fails, either CKV_AWS_145 ran when it should not have, or CKV_AWS_19 is incorrectly demanding KMS."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "SUP_003",
+      "category": "suppress_validation",
+      "description": "S3 bucket without cross-region replication \u2014 CKV_AWS_144 must be suppressed",
+      "explanation": "No multi-region requirement exists for this project. CKV_AWS_144 (requires cross-region replication) is in the suppress list. The bucket is otherwise compliant (SSE + logging). This scenario confirms that suppressing CKV_AWS_144 does not break the other S3 enforce checks.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "3/3 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_19",
+          "CKV_AWS_20",
+          "CKV_AWS_93"
+        ],
+        "runner_early_exit": false,
+        "notes": "CKV_AWS_144 and CKV2_AWS_62 are both suppressed. Score = 1.0 as long as the three active S3 checks pass."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "AGT_001",
+      "category": "agent_scenario",
+      "description": "DOWNSIZE remediation \u2014 encrypted EBS with new volume type",
+      "explanation": "Simulates the Terraform Agent 3 produces for a DOWNSIZE finding: the EC2 instance is being downsized and its EBS volume is recreated. The LLM correctly sets encrypted = true and uses gp3. This is the happy path for the most common remediation action in the platform. CKV_AWS_3 must pass.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "1/1 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_3"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. Score = 1.0. This is the expected output of a correctly functioning LLM on a DOWNSIZE scenario."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "AGT_002",
+      "category": "agent_scenario",
+      "description": "SET_RETENTION remediation \u2014 log group with 365-day retention",
+      "explanation": "Simulates the Terraform Agent 3 produces for a SET_RETENTION finding from Agent 2. The LLM correctly read the finding, understood that 365 days is the minimum compliant value, and set retention_in_days = 365. CKV_AWS_338 must pass. This is the success path for the log retention remediation.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "1/1 checks passed"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [
+          "CKV_AWS_338"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. Score = 1.0. Correct SET_RETENTION output."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "AGT_003",
+      "category": "agent_scenario",
+      "description": "SET_RETENTION remediation with wrong value \u2014 LLM set 7 days instead of 365",
+      "explanation": "Simulates an LLM error on a SET_RETENTION finding. The model understood it needed to add a retention policy but produced a non-compliant value of 7 days. The Terraform would actually be applied by Agent 4, making the situation worse \u2014 the log group now has a retention policy, so Agent 2 would no longer flag it, but the policy is non-compliant. CKV_AWS_338 must catch this before the approval gate.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.0,
+        "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_338'] \u2014 resources: ['aws_cloudwatch_log_group.app_logs']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.0,
+        "expected_failed_check_ids": [
+          "CKV_AWS_338"
+        ],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "Total checks = 1. 7 < 365. Score = 0/1 = 0.0. This is the validation loop's primary reason for existing on SET_RETENTION findings."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_338"
+        ],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "EDGE_001",
+      "category": "edge_case",
+      "description": "Empty terraform_code string \u2014 runner returns before calling checkov",
+      "explanation": "The validate() function guards against empty input before invoking checkov. This tests that the guard works correctly and does not produce a crash or a false positive. The runner must return passed=False and score=0.0 with a descriptive message, without ever invoking the checkov subprocess.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.0,
+        "details": "No Terraform to scan"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": true,
+        "notes": "The runner checks 'if not terraform_code or not terraform_code.strip()' and returns early. Checkov is never called. ValidatorResult.details should contain 'No Terraform to scan'."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "EDGE_002",
+      "category": "edge_case",
+      "description": "Terraform with only a data source \u2014 no applicable enforce checks, total=0",
+      "explanation": "Some LLM responses for Mode 1 (validate, no Terraform generation) may include only a data source reference with no resource blocks. When none of the 8 enforce checks apply to any resource in the file, checkov reports 0 passed and 0 failed. The runner's total=0 branch returns passed=True, score=1.0. This tests that edge case.",
+      "checkov_result": {
+        "passed": true,
+        "score": 1.0,
+        "details": "No applicable Checkov checks for this resource type"
+      },
+      "ground_truth": {
+        "expected_passed": true,
+        "expected_score": 1.0,
+        "expected_failed_check_ids": [],
+        "expected_passed_check_ids": [],
+        "runner_early_exit": false,
+        "notes": "Checkov runs but finds no checks applicable to data sources. total = 0. Runner short-circuits: passed=True, score=1.0, details='No applicable Checkov checks for this resource type'."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [],
+        "mismatches": []
+      }
+    },
+    {
+      "scenario_id": "EDGE_003",
+      "category": "edge_case",
+      "description": "Multiple resource types in one file \u2014 only relevant checks should score",
+      "explanation": "A realistic LLM output might contain both an EBS volume and a CloudWatch log group in the same Terraform file. Only CKV_AWS_3 (EBS) and CKV_AWS_338 (CloudWatch) apply. The EBS is encrypted (passes) but the log group has 30-day retention (fails). Total checks = 2, one passes, one fails. Score = 0.5.",
+      "checkov_result": {
+        "passed": false,
+        "score": 0.5,
+        "details": "1/2 checks passed \u2014 failed IDs: ['CKV_AWS_338'] \u2014 resources: ['aws_cloudwatch_log_group.app_logs']"
+      },
+      "ground_truth": {
+        "expected_passed": false,
+        "expected_score": 0.5,
+        "expected_failed_check_ids": [
+          "CKV_AWS_338"
+        ],
+        "expected_passed_check_ids": [
+          "CKV_AWS_3"
+        ],
+        "runner_early_exit": false,
+        "notes": "Total checks = 2 (CKV_AWS_3 + CKV_AWS_338). Passes: 1. Fails: 1. Score = round(1/2, 4) = 0.5. Tests partial credit scoring across resource types."
+      },
+      "evaluation": {
+        "overall_pass": true,
+        "passed_match": true,
+        "score_match": true,
+        "failed_checks_match": true,
+        "actual_failed_ids": [
+          "CKV_AWS_338"
+        ],
+        "mismatches": []
+      }
+    }
+  ]
+}

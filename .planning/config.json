@@ -33,5 +33,8 @@
   "agent_skills": {},
   "resolve_model_ids": "omit",
   "mode": "yolo",
-  "granularity": "standard"
+  "granularity": "standard",
+  "planning": {
+    "commit_docs": false
+  }
 }

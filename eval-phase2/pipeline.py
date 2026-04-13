@@ -84,6 +84,7 @@ def _run_validators(scenario: dict, llm_response: dict, workspace: Path) -> dict
         results["terraform_plan"]     = vars(terraform_plan.validate(tf, workspace))
         results["checkov"]            = vars(checkov_runner.validate(tf, workspace))
         results["opa"]                = vars(opa_runner.validate(tf, workspace))
+    
     elif mode in (2, 3):
         # Mode 2/3 but LLM produced no Terraform — zero score on all code checks
         for k in ("terraform_validate", "terraform_plan", "checkov", "opa"):
@@ -124,7 +125,6 @@ def _save_output(model_name: str, scenario_id: str, data: dict) -> None:
     out_dir = config.OUTPUTS_DIR / model_name
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{scenario_id}.json").write_text(json.dumps(data, indent=2))
-
 
 # ---------------------------------------------------------------------------
 # Main loop

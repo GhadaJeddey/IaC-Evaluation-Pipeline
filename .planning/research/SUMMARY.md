@@ -30,7 +30,7 @@ The stack is well-defined in PROJECT.md and validated by research. No changes re
 - **boto3 >= 1.34 (synchronous)** — use synchronous boto3 for all agents; aiobotocore rejected due to version coupling risk against botocore; for Agent 2b parallel calls use ThreadPoolExecutor pattern, not aiobotocore
 - **SQLAlchemy >= 2.0.30 (AsyncSession) + alembic >= 1.13** — ORM with async sessions; Alembic critical for hypertable migration (must run `CREATE EXTENSION timescaledb` as migration step 0, `create_hypertable` as step 1, before any data is inserted)
 - **TimescaleDB on Neon** — metrics hypertable with 7-day chunks; continuous aggregate `metrics_daily` is the query target for Agent 2 rules (not raw hypertable); chunk interval column name must exactly match `time_bucket` queries or performance gains are silently lost
-- **LiteLLM >= 1.40** — unified interface over Groq and Ollama; handles fallback routing on `RateLimitError`; do NOT use LangChain (300+ transitive deps, agent loop fights deterministic architecture)
+- **`groq` SDK >= 0.9 (primary) + `ollama` Python client (fallback)** — direct SDKs, no intermediary abstraction; thin wrapper function catches `groq.RateLimitError` and reroutes to Ollama; do NOT use LiteLLM (heavy dependency, fast-moving, redundant for a 2-provider setup) or LangChain (300+ transitive deps, agent loop fights deterministic architecture)
 - **Redis >= 5.0 [hiredis] + Redis Streams** — at-least-once delivery with replay; preferred over pub/sub (at-most-once, no persistence) and DB polling (adds query load); stream carries only IDs, DB is source of truth for payload
 - **Pure Python rules evaluator** — no external rules engine library; table-driven with DB-fetched thresholds; `graphlib.TopologicalSorter` (stdlib, Python 3.9+) for safe execution ordering
 - **Terraform >= 1.8 + Checkov >= 3.2 + conftest/OPA >= 0.50** — four-gate validation pipeline; `terraform init` must run before `terraform validate` (LLM hallucinated provider versions cause init to fail, not validate)
@@ -69,8 +69,6 @@ The stack is well-defined in PROJECT.md and validated by research. No changes re
 ## Scope Adjustments
 
 ### Additions Recommended by Research
-
-**Lambda memory rightsizing rule (add to Agent 2):** FEATURES.md identifies this as the highest-value missing feature that fits the existing architecture. Agent 1 already collects Lambda metrics. Agent 2 has no Lambda memory rightsizing rule. Adding "Lambda memory > 2x p99 required → downsize recommendation" closes a real cost story with one additional rule and no new infrastructure. This should be added to Agent 2 scope before the roadmap is finalized.
 
 **`.checkov.yaml` suppression file (add to Phase 3 scope):** PITFALLS.md identifies this as a demo-day failure mode. Common false positives on LLM-generated EC2 Terraform: `CKV_AWS_8` (IMDSv2), `CKV_AWS_135` (gp3 EBS), `CKV_AWS_126` (detailed monitoring), plus demo-irrelevant checks (`CKV_AWS_18`, `CKV_AWS_144`, `CKV2_AWS_62`). Build the suppression file in the same sprint as Checkov integration — not as a separate cleanup task.
 
@@ -136,9 +134,7 @@ These must be resolved before or during Phase 1 — they affect architectural de
 
 4. **Does the AWS MCP Server require a separate IAM role/user, or does it inherit the Collector's read-only role?** The MCP Server must be scoped to `ReadOnlyAccess` + specific Cost Explorer permissions. This is a security model question that affects IAM policy setup in the real AWS environment (Week 9 dry run).
 
-5. **Lambda memory rightsizing rule: add to Phase 2 scope or defer?** FEATURES.md identifies this as the highest-value unaddressed feature that fits the existing Agent 2 architecture. Recommend adding it — but this decision must be made before the roadmap phase list is finalized, as it affects Agent 2 implementation scope.
-
-6. **What is the Agent 1 collection interval?** The CronJob manifest shows `0 */6 * * *` (every 6 hours) in architecture research. PROJECT.md says "every N minutes." Clarify: 6 hours is appropriate for a demo with static LocalStack fixtures; it may be too infrequent to demonstrate real-time behavior during the live demo. Consider a shorter interval (15-30 minutes) for the demo environment.
+5. **What is the Agent 1 collection interval?** The CronJob manifest shows `0 */6 * * *` (every 6 hours) in architecture research. PROJECT.md says "every N minutes." Clarify: 6 hours is appropriate for a demo with static LocalStack fixtures; it may be too infrequent to demonstrate real-time behavior during the live demo. Consider a shorter interval (15-30 minutes) for the demo environment.
 
 ---
 
@@ -156,7 +152,7 @@ Rationale: Nothing else is possible without data. Agent 1 must collect real metr
 
 Delivers: Agent 1 (Collector) fully functional against LocalStack; TimescaleDB schema with hypertable and continuous aggregate; LocalStack seed script covering all demo scenarios; single ENV switch wiring dev/prod; Docker Compose environment running.
 
-Addresses: EC2/CloudWatch collection, S3 metadata, Lambda metrics, ghost resource scanning, log group scanning, tag compliance scanning.
+Addresses: EC2/CloudWatch collection, S3 metadata, ghost resource scanning, log group scanning.
 
 Must avoid: Building Agent 1 without the seed script (leaves Agent 2 untestable); skipping `CREATE EXTENSION timescaledb` as migration step 0; hardcoding LocalStack endpoint URL anywhere outside the boto3 client factory.
 
@@ -168,9 +164,9 @@ Research flag: Standard patterns — skip research phase. boto3 + TimescaleDB + 
 
 Rationale: Agent 2 depends on Agent 1's data. The rules engine must be validated against known metric scenarios before Agent 3 is built — if findings are not being generated correctly, LLM recommendations will be wrong regardless of model quality.
 
-Delivers: Agent 2 deterministic rules evaluator (all 7 rules in PROJECT.md, plus Lambda memory rightsizing if confirmed in scope); topological sort for execution ordering; Agent 2b crash diagnosis trigger chain; findings written to DB.
+Delivers: Agent 2 deterministic rules evaluator (all 7 rules); topological sort for execution ordering; Agent 2b crash diagnosis trigger chain; findings written to DB.
 
-Addresses: All finding types: idle EC2, oversized EC2, underprovisioned EC2, log retention, log volume, ghost resources (after 48h), untagged resources, Lambda memory (if added).
+Addresses: All finding types: idle EC2, oversized EC2, underprovisioned EC2, log retention, log volume, ghost resources (after 48h).
 
 Must avoid: Querying raw metrics hypertable instead of `metrics_daily` continuous aggregate; forgetting to load threshold config from DB at agent startup (warm-up query required); allowing Agent 1 and Agent 2 CronJobs to overlap (concurrencyPolicy: Forbid).
 
@@ -182,7 +178,7 @@ Research flag: Standard patterns for rules engine. Agent 2b's SQS trigger chain 
 
 Rationale: Agent 3 is the most complex component and the longest to get right. It depends on validated findings from Phase 2. The validation loop (init → validate → Checkov → OPA) must be built and tested against hand-written Terraform before LLM generation is added — this is the sequencing that prevents the "loop never passes" demo risk.
 
-Delivers: LiteLLM integration with Groq/Ollama fallback; Mode 1 (script + LLM explanation); Mode 2 (full LLM Terraform); Mode 3 (risky, extra validation); Mode 4 (crash RCA, 2-call pattern); validation loop with `.checkov.yaml` suppression; Redis recommendation cache; prompt templates in DB; LLM benchmark pipeline.
+Delivers: direct `groq`/`ollama` SDK integration with fallback wrapper; Mode 1 (script + LLM explanation); Mode 2 (full LLM Terraform); Mode 3 (risky, extra validation); Mode 4 (crash RCA, 2-call pattern); validation loop with `.checkov.yaml` suppression; Redis recommendation cache; prompt templates in DB; LLM benchmark pipeline.
 
 Addresses: All recommendation modes, plain-language business justifications with dollar amounts, IaC generation, pre-validated Terraform presented to approver.
 
@@ -264,7 +260,8 @@ Research flag: K8s deployment warrants review if the team is proceeding with k3s
 - SQLAlchemy 2.0 async docs — AsyncSession, async_sessionmaker
 
 ### Secondary (MEDIUM confidence)
-- LiteLLM documentation — provider routing, RateLimitError fallback
+- Groq Python SDK documentation — `groq.RateLimitError`, timeout config
+- Ollama Python client documentation — `ollama.chat()`, local endpoint config
 - LocalStack Community coverage matrix — service support boundaries
 - Groq API documentation — rate limit tiers, JSON mode, model availability
 - Neon documentation — free tier limits, connection pooling, compute suspend behavior
