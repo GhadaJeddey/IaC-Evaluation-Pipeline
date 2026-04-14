@@ -194,12 +194,12 @@ def validate(terraform_code: str, workspace: Path) -> ValidatorResult:
         )
 
     # ------------------------------------------------------------------ #
-    # terraform plan
+    # terraform plan -out=tfplan  (binary plan file)
     # ------------------------------------------------------------------ #
 
     logger.debug(f"Running terraform plan in {workspace}")
     plan_rc, plan_out = _run_cmd(
-        ["terraform", "plan", "-no-color", "-input=false"],
+        ["terraform", "plan", "-out=tfplan", "-no-color", "-input=false"],
         cwd=workspace,
         env=env,
         timeout=120,
@@ -208,18 +208,46 @@ def validate(terraform_code: str, workspace: Path) -> ValidatorResult:
     passed  = plan_rc == 0
     details = plan_out[:600] if plan_out else "(no output)"
 
-    # Truncate and annotate
     if not passed:
-        # Surface the most useful part — errors are usually at the end
         lines = plan_out.splitlines()
         error_lines = [l for l in lines if "Error" in l or "error" in l]
         if error_lines:
             details = "\n".join(error_lines[:10])
+        return ValidatorResult(
+            name    = "terraform_plan",
+            passed  = False,
+            score   = 0.0,
+            details = details,
+            skipped = False,
+        )
+
+    # ------------------------------------------------------------------ #
+    # terraform show -json tfplan  →  plan.json  (OPA input)
+    # ------------------------------------------------------------------ #
+
+    logger.debug(f"Running terraform show -json in {workspace}")
+    show_rc, show_out = _run_cmd(
+        ["terraform", "show", "-json", "tfplan"],
+        cwd=workspace,
+        env=env,
+        timeout=60,
+    )
+
+    if show_rc == 0 and show_out:
+        plan_json_path = workspace / "plan.json"
+        plan_json_path.write_text(show_out, encoding="utf-8")
+        logger.debug(f"plan.json written to {plan_json_path}")
+        details = f"plan succeeded — plan.json written ({len(show_out)} bytes)"
+    else:
+        # Plan passed but show failed — still report plan as passed,
+        # OPA will skip gracefully when plan.json is absent.
+        logger.warning(f"terraform show failed (rc={show_rc}): {show_out[:200]}")
+        details = f"plan succeeded but terraform show failed (rc={show_rc}) — plan.json not written"
 
     return ValidatorResult(
         name    = "terraform_plan",
-        passed  = passed,
-        score   = 1.0 if passed else 0.0,
+        passed  = True,
+        score   = 1.0,
         details = details,
         skipped = False,
     )
