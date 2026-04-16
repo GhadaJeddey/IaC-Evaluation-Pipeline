@@ -1,7 +1,16 @@
 
 """
-trust_paragraph:  an exeternl LLM judge ( claude sonnet 4.6 ] evaluates the model's output 
+Evaluation configuration — models, paths, and per-weight-key scoring weights.
 
+Weight keys (used by scorer._weight_key):
+  Two orthogonal axes — multi-instance and terraform-generated — produce 4 combinations,
+  plus a dedicated key for Mode 3 (crash RCA).
+
+  "nl"       — single resource,  OPTIMAL   (no terraform)   e.g. Tier A/C OPTIMAL
+  "tf"       — single resource,  LLM_GEN   (terraform out)  e.g. Tier A/C SUBOPTIMAL/INCORRECT
+  "multi_nl" — multi-instance,   OPTIMAL   (no terraform)   e.g. Tier B all-CLEAN
+  "multi_tf" — multi-instance,   LLM_GEN   (terraform out)  e.g. Tier B with overrides
+  "3"        — Tier D crash RCA  (terraform optional)
 """
 
 
@@ -50,34 +59,66 @@ MODELS = {
 }
 
 # ---------------------------------------------------------------------------
-# Scoring weights — keys must match ValidatorResult.name values in scorer.py
-# Weights per mode; must sum to 1.0
+# Scoring weights — keys must match ValidatorResult.name values.
+# Keys are resolved by scorer._weight_key(), not by terraform_mode directly.
+# Each set must sum to 1.0.
 # ---------------------------------------------------------------------------
 WEIGHTS = {
-    # Mode 1: LLM validates Agent 2, outputs NL only — no Terraform generated
-    1: {
-        "behavior_correct":  0.35,
-        "nl_quality":        0.40,
-        "trust_paragraph":   0.25,
+    # Single resource, OPTIMAL verdict — NL explanation only, no Terraform
+    # Covers: Tier A OPTIMAL, Tier C OPTIMAL
+    "nl": {
+        "behavior_correct": 0.45,
+        "nl_quality":       0.55,
     },
-    # Mode 2: LLM overrides Agent 2, generates Terraform
-    2: {
-        "behavior_correct":   0.10,
+    # Single resource, SUBOPTIMAL / INCORRECT — LLM generated Terraform
+    # Covers: Tier A override, Tier C override
+    "tf": {
+        "behavior_correct":   0.15,
+        "nl_quality":         0.20,
+        "terraform_validate": 0.15,
+        "terraform_plan":     0.20,
+        "checkov":            0.20,
+        "opa":                0.10,
+    },
+    # Multi-instance, OPTIMAL verdict — NL + execution order, no Terraform
+    # Covers: Tier B all-CLEAN / all-AGENT_VALIDATED
+    "multi_nl": {
+        "behavior_correct": 0.30,
+        "nl_quality":       0.45,
+        "execution_order":  0.25,
+    },
+    # Multi-instance, LLM generated Terraform for at least one instance
+    # Covers: Tier B with SUBOPTIMAL / INCORRECT overrides
+    "multi_tf": {
+        "behavior_correct":   0.15,
+        "nl_quality":         0.25,
+        "execution_order":    0.15,
         "terraform_validate": 0.15,
         "terraform_plan":     0.15,
-        "checkov":            0.20,
-        "opa":                0.15,
-        "nl_quality":         0.15,
-        "trust_paragraph":    0.10,
+        "checkov":            0.10,
+        "opa":                0.05,
     },
-    # Mode 3: Crash RCA — diagnosis + optional Terraform
-    3: {
-        "diagnosis_correct":  0.35,
-        "nl_quality":         0.25,
-        "trust_paragraph":    0.10,
+    # Tier D — crash RCA; Terraform is optional (only scored when emitted)
+    "3": {
+        "diagnosis_correct":  0.40,
+        "nl_quality":         0.35,
         "terraform_validate": 0.10,
         "terraform_plan":     0.10,
-        "checkov":            0.10,
+        "checkov":            0.05,
+    },
+    # Tier C multi-finding, all OPTIMAL (no terraform produced)
+    "c_multi_nl": {
+        "behavior_correct": 0.40,
+        "nl_quality":       0.60,
+    },
+    # Tier C multi-finding, at least one LLM_GENERATED terraform block
+    "c_multi_tf": {
+        "behavior_correct":   0.15,
+        "nl_quality":         0.25,
+        "terraform_validate": 0.15,
+        "terraform_plan":     0.20,
+        "checkov":            0.15,
+        "opa":                0.10,
     },
 }
 

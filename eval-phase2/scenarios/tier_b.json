@@ -6,7 +6,6 @@
                 "scenario_id": "B1",
                 "description": "2 instances \u2014 1 idle (STOP) + 1 healthy (CLEAN)",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
                 "app_group": "APP-B1",
                 "app_group_name": "Frontend Service",
                 "flagged_resources": [
@@ -107,7 +106,7 @@
                             "terraform_change": null
                         },
                         "i-b102": {
-                            "expected_verdict": "CLEAN",
+                            "expected_verdict": "OPTIMAL",
                             "expected_terraform_action": "NONE",
                             "terraform_block_must_be_null": true,
                             "expected_pipeline_warning_acknowledged": null,
@@ -127,7 +126,6 @@
                 "scenario_id": "B2",
                 "description": "2 instances \u2014 1 oversized (DOWNSIZE) + 1 idle (STOP)",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
                 "app_group": "APP-B2",
                 "app_group_name": "API Service",
                 "flagged_resources": [
@@ -248,7 +246,6 @@
                 "scenario_id": "B3",
                 "description": "3 instances \u2014 dependent_primary (DOWNSIZE capped) + dependent_secondary (secondary-safe DOWNSIZE) + healthy (CLEAN)",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
                 "app_group": "APP-B3",
                 "app_group_name": "Database Cluster",
                 "flagged_resources": [
@@ -399,7 +396,7 @@
                             "terraform_change": null
                         },
                         "i-b303": {
-                            "expected_verdict": "CLEAN",
+                            "expected_verdict": "OPTIMAL",
                             "expected_terraform_action": "NONE",
                             "terraform_block_must_be_null": true,
                             "expected_pipeline_warning_acknowledged": null,
@@ -425,7 +422,6 @@
                 "scenario_id": "B4",
                 "description": "3 instances \u2014 1 idle with reads_from DynamoDB 30% (STOP + warning) + 2 healthy (CLEAN)",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
                 "app_group": "APP-B4",
                 "app_group_name": "Inventory Service",
                 "flagged_resources": [
@@ -581,7 +577,7 @@
                             "terraform_change": null
                         },
                         "i-b402": {
-                            "expected_verdict": "CLEAN",
+                            "expected_verdict": "OPTIMAL",
                             "expected_terraform_action": "NONE",
                             "terraform_block_must_be_null": true,
                             "expected_pipeline_warning_acknowledged": null,
@@ -589,7 +585,7 @@
                             "terraform_change": null
                         },
                         "i-b403": {
-                            "expected_verdict": "CLEAN",
+                            "expected_verdict": "OPTIMAL",
                             "expected_terraform_action": "NONE",
                             "terraform_block_must_be_null": true,
                             "expected_pipeline_warning_acknowledged": null,
@@ -609,7 +605,6 @@
                 "scenario_id": "B5",
                 "description": "4 instances \u2014 zombie (TERMINATE) + oversized (DOWNSIZE) + idle+writes_to S3 30% (STOP+warning) + bursty oversized (DOWNSIZE)",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
                 "app_group": "APP-B5",
                 "app_group_name": "Analytics Platform",
                 "flagged_resources": [
@@ -838,6 +833,114 @@
                         "analytics-exporter-01 STOP with pipeline_warning (writes_to S3)",
                         "analytics-batch-01 DOWNSIZE to c5.large (bursty)"
                     ]
+                }
+            },
+            "B6": {
+                "scenario_id": "B6",
+                "description": "2 instances \u2014 both healthy (CLEAN), no action needed for either",
+                "terraform_mode": 1,
+                "app_group": "APP-B6",
+                "app_group_name": "Reporting Service",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-b601",
+                        "instance_name": "reporting-server-01",
+                        "instance_type": "m5.large",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "CLEAN",
+                            "waste_type": "none",
+                            "detection_window_days": 14,
+                            "p95_cpu": 62.1,
+                            "p99_cpu": 74.8,
+                            "max_cpu": 82.3,
+                            "p95_ram": 58.4,
+                            "cv": 0.19,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "No waste pattern detected. P95 CPU (62.1%) is within healthy utilization range.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.096,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0.0
+                        },
+                        "relationships": []
+                    },
+                    {
+                        "instance_id": "i-b602",
+                        "instance_name": "reporting-server-02",
+                        "instance_type": "m5.large",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "CLEAN",
+                            "waste_type": "none",
+                            "detection_window_days": 14,
+                            "p95_cpu": 55.7,
+                            "p99_cpu": 68.9,
+                            "max_cpu": 77.1,
+                            "p95_ram": 61.2,
+                            "cv": 0.22,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "No waste pattern detected. P95 CPU (55.7%) is within healthy utilization range.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.096,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0.0
+                        },
+                        "relationships": []
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"reporting_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"reporting-server-01\"\n    Environment = \"production\"\n  }\n}\n\nresource \"aws_instance\" \"reporting_server_02\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"reporting-server-02\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "NONE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "both instances have healthy CPU utilization (55-62% P95)",
+                        "no waste pattern on either instance over 14 days",
+                        "agent2 returns CLEAN for both \u2014 LLM must agree and produce no Terraform changes",
+                        "app group has no actionable findings"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
                 }
             }
         }

@@ -52,7 +52,10 @@ The stack is well-defined in PROJECT.md and validated by research. No changes re
 
 **Agent 2b trigger chain:** CloudWatch Alarm (StatusCheckFailed) → SNS → SQS → FastAPI `/webhooks/crash` → K8s Job (agent-crash-diagnosis). In Docker Compose dev, replace SQS with Redis List (LocalStack SQS long-poll has known inconsistencies).
 
-**LLM mode routing:** Deterministic — set by Agent 2's finding type, never by the LLM itself. Mode 1 (SIMPLE): script generates Terraform, LLM generates explanation only (1 API call, no validation loop). Mode 2 (COMPLEX): LLM generates full Terraform + validation loop. Mode 3 (RISKY): LLM + extra validation pass. Mode 4 (RCA): 2 LLM calls (log summarization first to compress token count, then Terraform generation).
+**LLM mode routing:** LLM-decides approach — no deterministic mode classifier in Agent 3 code. LLM receives current Terraform + Agent 2's finding and decides the intervention scope itself. Three modes, determined by input type:
+- **Mode 1 (validate):** Standard finding, Agent 2's action is correct → LLM writes NL explanation + trust paragraph only; script applies Terraform; no validation loop needed
+- **Mode 2 (override):** Standard finding, Agent 2's action is wrong/incomplete → LLM generates corrective Terraform + explanation + trust paragraph; full validation loop (init → validate → plan → Checkov → OPA, max 3 retries)
+- **Mode 3 (crash RCA):** Separate call triggered by Agent 2b on `StatusCheckFailed`; input is 500 CloudWatch log lines + metadata + relationships; LLM diagnoses root cause in plain language first, then generates remediation Terraform only if diagnosis is sound
 
 **Validation loop order:** `terraform init` → `terraform validate` → `checkov` (soft-fail on LOW/MEDIUM only) → `conftest` (OPA). Errors from each gate are fed back into the next LLM prompt. Hard stop at 3 retries — write `escalated_to_human` finding and halt. No autonomous retry on 429.
 

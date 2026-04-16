@@ -1,10 +1,21 @@
 """
 LLM-as-judge NL quality scorer.
-Uses Claude (external, not under evaluation) to score on 5 dimensions.
+Uses Claude (external, not under evaluation) to score on 6 dimensions.
 """
-import json, os
+import json, subprocess
 from dataclasses import dataclass
-import anthropic
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+
+
+_PROMPTS_PATH = Path(__file__).resolve().parents[1] / "prompts" / "llm_judge_prompts.py"
+_PROMPTS_SPEC = spec_from_file_location("llm_judge_prompts", _PROMPTS_PATH)
+if _PROMPTS_SPEC is None or _PROMPTS_SPEC.loader is None:
+    raise ImportError(f"Could not load prompt module at {_PROMPTS_PATH}")
+_PROMPTS_MODULE = module_from_spec(_PROMPTS_SPEC)
+_PROMPTS_SPEC.loader.exec_module(_PROMPTS_MODULE)
+JUDGE_PROMPT_MODE_1_2 = _PROMPTS_MODULE.JUDGE_PROMPT_MODE_1_2
+JUDGE_PROMPT_MODE_3 = _PROMPTS_MODULE.JUDGE_PROMPT_MODE_3
 
 @dataclass
 class ValidatorResult:
@@ -15,107 +26,77 @@ class ValidatorResult:
     breakdown: dict         # per-dimension scores
 
 
-_JUDGE_PROMPT_MODE_1_2 = """\
-You are an expert FinOps judge evaluating LLM-generated recommendations for AWS cost optimization.
-
-Score the response below on exactly these 5 dimensions (0–5 each):
-
-1. decision_faithfulness  — Does the LLM's action match what Agent 2 decided (or correctly override it with evidence)?
-2. factual_correctness    — Are metrics, costs, and relationships cited accurately from the input?
-3. completeness           — Are all flagged resources addressed? Are savings estimates included?
-4. trust_paragraph        — Does it communicate relationship confidence warnings and derivation evidence clearly?
-5. actionability          — Would an engineer know exactly what to do and why after reading this?
-
-=== SCENARIO INPUT ===
-{scenario_summary}
-
-=== LLM RESPONSE ===
-{llm_response}
-
-Output ONLY valid JSON, no extra text:
-{{
-  "decision_faithfulness": <0-5>,
-  "factual_correctness": <0-5>,
-  "completeness": <0-5>,
-  "trust_paragraph": <0-5>,
-  "actionability": <0-5>,
-  "reasoning": "<one sentence>"
-}}
-"""
-
-_JUDGE_PROMPT_MODE_3 = """\
-You are an expert evaluating LLM-generated crash root cause analysis for AWS EC2 instances.
-
-Score the response below on exactly these 5 dimensions (0–5 each):
-
-1. diagnosis_accuracy     — Does the root cause match the log evidence? Is it specific and correct?
-2. factual_correctness    — Are log timestamps, error messages, and instance details cited accurately?
-3. completeness           — Is the remediation suggestion present and appropriate (or correctly absent)?
-4. trust_paragraph        — Does it warn about dependent instances affected by the remediation?
-5. actionability          — Would an on-call engineer know exactly what to do next?
-
-Expected root cause: {expected_root_cause}
-
-=== LOG LINES ===
-{log_lines}
-
-=== LLM RESPONSE ===
-{llm_response}
-
-Output ONLY valid JSON, no extra text:
-{{
-  "diagnosis_accuracy": <0-5>,
-  "factual_correctness": <0-5>,
-  "completeness": <0-5>,
-  "trust_paragraph": <0-5>,
-  "actionability": <0-5>,
-  "reasoning": "<one sentence>"
-}}
-"""
-
-
-def _call_judge(prompt: str, judge_model: str) -> dict:
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-    msg = client.messages.create(
-        model=judge_model,
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
+def _call_judge(prompt: str) -> dict:
+    result = subprocess.run(
+        ["claude", "-p", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
-    raw = msg.content[0].text.strip()
+    if result.returncode != 0:
+        raise RuntimeError(f"claude -p failed (rc={result.returncode}): {result.stderr[:200]}")
+    raw = result.stdout.strip()
     return json.loads(raw)
 
 
 def validate(
     scenario: dict,
     llm_response: dict,
-    judge_model: str = "claude-sonnet-4-6",
 ) -> ValidatorResult:
     mode = scenario.get("terraform_mode", 1)
 
     try:
         if mode == 3:
-            inst = scenario.get("instance", {})
-            prompt = _JUDGE_PROMPT_MODE_3.format(
+            prompt = JUDGE_PROMPT_MODE_3.format(
                 expected_root_cause=scenario.get("expected_root_cause", "N/A"),
                 log_lines="\n".join(scenario.get("log_lines", [])),
                 llm_response=json.dumps(llm_response, indent=2),
             )
             dim_key = "diagnosis_accuracy"
         else:
-            resources = scenario.get("flagged_resources", [scenario.get("finding", {})])
-            scenario_summary = json.dumps(
-                {"expected_action": scenario.get("expected_action"),
-                 "expected_llm_behavior": scenario.get("expected_llm_behavior"),
-                 "resources": [r.get("agent2_decision", r) for r in (resources if isinstance(resources, list) else [resources])]},
-                indent=2
-            )
-            prompt = _JUDGE_PROMPT_MODE_1_2.format(
-                scenario_summary=scenario_summary,
-                llm_response=json.dumps(llm_response, indent=2),
-            )
-            dim_key = "decision_faithfulness"
+            # Pass only the report fields to the judge — excludes terraform_block,
+            # verdict, terraform_action, execution_order, and other non-NL structural keys.
+            _NL_FIELDS = {
+                "decision_summary",
+                "technical_explanation",
+                "cost_report",
+                "risk_assessment",
+                "group_summary",
+                "group_cost_report",
+            }
+            nl_response = {k: v for k, v in llm_response.items() if k in _NL_FIELDS}
+            if "instances" in llm_response:
+                nl_response["instances"] = {
+                    iid: {k: v for k, v in inst.items() if k in _NL_FIELDS}
+                    for iid, inst in llm_response["instances"].items()
+                }
+            if "findings" in llm_response:
+                nl_response["findings"] = {
+                    rid: {k: v for k, v in f.items() if k in _NL_FIELDS}
+                    for rid, f in llm_response["findings"].items()
+                }
 
-        scores = _call_judge(prompt, judge_model)
+            llm_eval = scenario.get("llm_evaluation", {})
+            # For multi-finding Tier C, aggregate key_facts from all per_finding entries
+            if "per_finding" in llm_eval:
+                key_facts = []
+                for pf in llm_eval["per_finding"].values():
+                    key_facts.extend(pf.get("key_facts", []))
+                group_must = llm_eval.get("group_summary_must_mention", [])
+                key_facts.extend(group_must)
+            else:
+                key_facts = llm_eval.get("key_facts", [])
+            key_facts_str = "\n".join(f"  - {f}" for f in key_facts) if key_facts else "  (none provided)"
+
+            prompt = JUDGE_PROMPT_MODE_1_2.format(
+                expected_verdict=llm_eval.get("expected_verdict", "N/A"),
+                expected_terraform_action=llm_eval.get("expected_terraform_action", "N/A"),
+                key_facts=key_facts_str,
+                llm_response=json.dumps(nl_response, indent=2),
+            )
+            dim_key = "key_facts_coverage"
+
+        scores = _call_judge(prompt)
 
     except Exception as e:
         return ValidatorResult(

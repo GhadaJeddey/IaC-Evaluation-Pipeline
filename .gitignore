@@ -1,2 +1,4 @@
 .planning/
 .claude/
+iac-eval/
+eval-phase2/validators/.tf_workspace/

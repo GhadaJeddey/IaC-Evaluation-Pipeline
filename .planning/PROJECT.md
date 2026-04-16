@@ -63,7 +63,7 @@ execution — with automatic rollback if anything goes wrong.
 - [ ] App-group bundling: group EC2 findings and CloudWatch log group findings by app group (`resource_groups` where `group_type = app`) before LLM call — one LLM call per app group, not per instance; S3 and ghost resource findings passed individually
 - [ ] LLM-decides approach: Agent 3 sends the LLM the current Terraform file + Agent 2's finding and suggested action; LLM determines the appropriate intervention — if Agent 2's action is implementable with a simple edit it outputs a script-level diff only, if architecture changes are needed it generates full Terraform and explains; no deterministic mode routing in Agent 3 code
 - [ ] Standard findings (STOP / DOWNSIZE / TERMINATE / SET_RETENTION / GLACIER_TRANSITION / DESTROY): single LLM call receives waste bundle (metrics, role, relationships with confidence scores) + current Terraform; LLM outputs either a minimal diff or full rewrite + `trust_paragraph`; for SET_RETENTION findings, LLM infers correct retention period from log group context
-- [ ] Crash RCA (Mode 4 — separate call): triggered by Agent 2b on `StatusCheckFailed` alarm; separate prompt and input (500 CloudWatch log lines); LLM first diagnoses root cause in plain language, then generates remediation Terraform only if diagnosis is sound
+- [ ] Crash RCA (Mode 3 — separate call): triggered by Agent 2b on `StatusCheckFailed` alarm; separate prompt and input (500 CloudWatch log lines); LLM first diagnoses root cause in plain language, then generates remediation Terraform only if diagnosis is sound
 - [ ] LLM output always includes: Terraform change (diff or full rewrite), explanation of decision, `trust_paragraph` (relationship confidence warnings, derivation evidence, any corrections)
 - [ ] Validation loop: `terraform init` → `terraform validate` → `terraform plan` → Checkov → OPA, max 3 retries before escalating to human (`status = escalated_to_human`, no PR opened)
 - [ ] Redis recommendation cache: key = `sha256(finding_type + resource_id + metrics_snapshot)`, TTL = 24h
@@ -93,10 +93,15 @@ execution — with automatic rollback if anything goes wrong.
 **Database Schema**
 - [ ] Tables: instances (+ `role` field) · metrics (hypertable) · costs · rules · instance_prices · findings · recommendations · audit_log (immutable) · ghost_resources · logs_audit · resource_relationships · resource_groups · waste · prompt_templates
 
-**LLM Evaluation Pipeline**
-- [ ] Benchmark 3-4 models: Qwen3-32B (Groq), Llama 3.3 70B (Groq), Qwen 2.5 Coder 7B (Ollama)
-- [ ] Scoring: terraform validate 15% · terraform plan 15% · Checkov 20% · OPA 15% · execution order 10% · NL quality 25%
-- [ ] Select best model for prod deployment on Groq free tier
+**LLM Evaluation Pipeline** (`eval-phase2/`)
+- [ ] 4 models under evaluation: Qwen3-Coder 32B (Groq), Llama 3.3 70B (Groq), Gemini 2.5 Flash (Google), Codestral 22B (Mistral)
+- [ ] 29 scenarios across 4 tiers: tier_a (15 — single EC2), tier_b (5 — multi-instance bundles), tier_c (5 — non-EC2: log groups, EIP, EBS, S3), tier_d (4 — crash RCA)
+- [ ] Scoring weights by mode:
+  - Mode 1 (validate): behavior_correct 35% · nl_quality 40% · trust_paragraph 25%
+  - Mode 2 (override): behavior_correct 10% · terraform_validate 15% · terraform_plan 15% · checkov 20% · opa 15% · nl_quality 15% · trust_paragraph 10%
+  - Mode 3 (crash RCA): diagnosis_correct 35% · nl_quality 25% · trust_paragraph 10% · terraform_validate/plan/checkov 10% each
+- [ ] NL judge: Claude claude-sonnet-4-6 (Anthropic SDK) evaluates trust paragraph and NL quality — not under evaluation itself
+- [ ] Select best model for Agent 3 production deployment on Groq free tier
 
 ### Out of Scope
 

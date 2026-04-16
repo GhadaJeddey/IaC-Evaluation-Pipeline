@@ -6,8 +6,6 @@
                 "scenario_id": "C1",
                 "description": "CloudWatch log group with no retention policy",
                 "terraform_mode": 2,
-                "expected_llm_behavior": "validate",
-                "expected_action": "SET_RETENTION",
                 "finding": {
                     "finding_type": "SET_RETENTION",
                     "resource_type": "cloudwatch_log_group",
@@ -34,7 +32,7 @@
                 "current_terraform": "resource \"aws_cloudwatch_log_group\" \"app_logs_prod\" {\n  name = \"/aws/application/app-logs-prod\"\n  # retention_in_days not set \u2014 logs retained indefinitely\n\n  tags = {\n    Name        = \"app-logs-prod\"\n    Environment = \"production\"\n  }\n}",
                 "llm_evaluation": {
                     "expected_verdict": "OPTIMAL",
-                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
                     "terraform_must_include": [
                         "aws_cloudwatch_log_group",
                         "retention_in_days"
@@ -52,8 +50,6 @@
                 "scenario_id": "C2",
                 "description": "CloudWatch log group with high ingestion volume \u2014 S3 archival recommended",
                 "terraform_mode": 2,
-                "expected_llm_behavior": "override",
-                "expected_action": "S3_ARCHIVAL",
                 "finding": {
                     "finding_type": "S3_ARCHIVAL",
                     "resource_type": "cloudwatch_log_group",
@@ -80,7 +76,7 @@
                 "current_terraform": "resource \"aws_cloudwatch_log_group\" \"high_volume_logs\" {\n  name              = \"/aws/application/high-volume-logs\"\n  retention_in_days = 90\n\n  tags = {\n    Name        = \"high-volume-logs\"\n    Environment = \"production\"\n  }\n}\n# No S3 export subscription configured",
                 "llm_evaluation": {
                     "expected_verdict": "OPTIMAL",
-                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_terraform_action": "LLM_GENRATED",
                     "terraform_must_include": [
                         "aws_cloudwatch_log_subscription_filter",
                         "aws_iam_role",
@@ -100,8 +96,6 @@
                 "scenario_id": "C3",
                 "description": "Ghost EIP \u2014 unattached for more than 48 hours",
                 "terraform_mode": 2,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DESTROY",
                 "finding": {
                     "finding_type": "DESTROY",
                     "resource_type": "eip",
@@ -127,7 +121,7 @@
                 "current_terraform": "resource \"aws_eip\" \"ghost_eip_0a1b2c3d\" {\n  domain = \"vpc\"\n\n  tags = {\n    Name = \"ghost-eip-0a1b2c3d\"\n  }\n}",
                 "llm_evaluation": {
                     "expected_verdict": "OPTIMAL",
-                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
                     "terraform_must_include": [
                         "aws_eip",
                         "lifecycle"
@@ -146,8 +140,6 @@
                 "scenario_id": "C4",
                 "description": "Ghost EBS volume \u2014 available state for more than 48 hours",
                 "terraform_mode": 2,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DESTROY",
                 "finding": {
                     "finding_type": "DESTROY",
                     "resource_type": "ebs_volume",
@@ -194,8 +186,6 @@
                 "scenario_id": "C5",
                 "description": "S3 bucket with cold data \u2014 Glacier transition recommended",
                 "terraform_mode": 2,
-                "expected_llm_behavior": "override",
-                "expected_action": "GLACIER_TRANSITION",
                 "finding": {
                     "finding_type": "GLACIER_TRANSITION",
                     "resource_type": "s3_bucket",
@@ -238,6 +228,563 @@
                         "Glacier Instant Retrieval transition at 90 days saves $34.09/month",
                         "aws_s3_bucket_lifecycle_configuration must be a separate resource (not inline)",
                         "transition noncurrent versions too if applicable"
+                    ]
+                }
+            },
+            "C6": {
+                "scenario_id": "C6",
+                "description": "CloudWatch log group already has retention policy set \u2014 no action needed",
+                "terraform_mode": 2,
+                "finding": {
+                    "finding_type": "CLEAN",
+                    "resource_type": "cloudwatch_log_group",
+                    "log_group_name": "/aws/lambda/order-service",
+                    "log_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/order-service",
+                    "retention_days": 30,
+                    "ingestion_bytes_per_day": 10485760,
+                    "ingestion_gb_per_month": 0.31,
+                    "estimated_cost_per_month": 0.15,
+                    "detection_reason": "Log group /aws/lambda/order-service already has retention_in_days = 30. No action required."
+                },
+                "agent2_decision": {
+                    "action": "CLEAN",
+                    "waste_type": "none",
+                    "detection_window_days": null,
+                    "detection_reason": "Log group /aws/lambda/order-service has retention_in_days = 30 \u2014 already compliant, no action needed.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_cloudwatch_log_group\" \"order_service_logs\" {\n  name              = \"/aws/lambda/order-service\"\n  retention_in_days = 30\n\n  tags = {\n    Name        = \"order-service-logs\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "CLEAN",
+                    "expected_terraform_action": "NONE",
+                    "terraform_must_include": null,
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "retention_in_days = 30 is already set on the log group",
+                        "no lifecycle violation \u2014 resource is compliant",
+                        "LLM must confirm CLEAN and must NOT output any Terraform modification",
+                        "ingestion volume is low (0.31 GB/month) \u2014 S3 archival not warranted"
+                    ]
+                }
+            },
+            "C7": {
+                "scenario_id": "C7",
+                "description": "Idle NAT Gateway \u2014 near-zero traffic for 14 days, no dependent workloads",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DESTROY",
+                "finding": {
+                    "finding_type": "DESTROY",
+                    "resource_type": "nat_gateway",
+                    "resource_id": "nat-0f3a7b1c2d4e5f6a7",
+                    "name": "nat-gw-staging-app",
+                    "vpc_id": "vpc-0a1b2c3d",
+                    "subnet_id": "subnet-0a1b2c3d",
+                    "state": "available",
+                    "bytes_processed_avg_per_day": 7168,
+                    "idle_days": 14,
+                    "associated_eip_id": "eipalloc-0b2c3d4e5f6a7b8c9",
+                    "associated_eip_public_ip": "18.234.55.12",
+                    "cost_per_month": 33.48,
+                    "detection_reason": "NAT Gateway nat-gw-staging-app processed 7 KB/day average over 14 days \u2014 below 1 MB/day idle threshold. No active routes use this gateway."
+                },
+                "agent2_decision": {
+                    "action": "DESTROY",
+                    "waste_type": "ghost_resource",
+                    "detection_window_days": 14,
+                    "detection_reason": "NAT Gateway nat-gw-staging-app is idle (7 KB/day) for 14 days. No data loss risk: NAT Gateways are stateless. Associated EIP eipalloc-0b2c3d4e5f6a7b8c9 should also be released.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_eip\" \"nat_gw_staging_eip\" {\n  domain = \"vpc\"\n\n  tags = {\n    Name        = \"nat-gw-staging-eip\"\n    Environment = \"staging\"\n  }\n}\n\nresource \"aws_nat_gateway\" \"nat_gw_staging_app\" {\n  allocation_id = aws_eip.nat_gw_staging_eip.id\n  subnet_id     = \"subnet-0a1b2c3d\"\n\n  tags = {\n    Name        = \"nat-gw-staging-app\"\n    Environment = \"staging\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_nat_gateway",
+                        "aws_eip",
+                        "lifecycle"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "NAT Gateway processed only 7 KB/day \u2014 well below 1 MB/day idle threshold",
+                        "idle for 14 days \u2014 confirmed ghost resource",
+                        "$33.48/month wasted ($0.045/hr fixed charge + negligible data cost)",
+                        "NAT Gateways are stateless \u2014 no data loss on destroy",
+                        "associated EIP eipalloc-0b2c3d4e5f6a7b8c9 must also be released \u2014 otherwise EIP incurs $3.60/month idle charge",
+                        "lifecycle prevent_destroy = false required on both aws_nat_gateway and aws_eip"
+                    ]
+                }
+            },
+            "C8": {
+                "scenario_id": "C8",
+                "description": "ALB with 0 healthy targets and zero traffic for 7 days \u2014 ghost load balancer",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "DESTROY",
+                "finding": {
+                    "finding_type": "DESTROY",
+                    "resource_type": "alb",
+                    "resource_arn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/api-staging-alb/0a1b2c3d4e5f6a7b",
+                    "load_balancer_name": "api-staging-alb",
+                    "load_balancer_type": "application",
+                    "scheme": "internet-facing",
+                    "healthy_host_count": 0,
+                    "request_count_avg_per_day": 0,
+                    "idle_days": 7,
+                    "target_group_count": 1,
+                    "cost_per_month": 18.4,
+                    "detection_reason": "ALB api-staging-alb has 0 healthy targets and 0 requests over 7 days \u2014 confirmed ghost load balancer."
+                },
+                "agent2_decision": {
+                    "action": "DESTROY",
+                    "waste_type": "ghost_resource",
+                    "detection_window_days": 7,
+                    "detection_reason": "ALB api-staging-alb has 0 healthy targets and 0 requests for 7 days. No data loss: ALBs are stateless. All dependent listeners and target groups should be removed.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_lb\" \"api_staging_alb\" {\n  name               = \"api-staging-alb\"\n  internal           = false\n  load_balancer_type = \"application\"\n  security_groups    = [\"sg-0a1b2c3d\"]\n  subnets            = [\"subnet-0a1b2c3d\", \"subnet-0b2c3d4e\"]\n\n  tags = {\n    Name        = \"api-staging-alb\"\n    Environment = \"staging\"\n  }\n}\n\nresource \"aws_lb_target_group\" \"api_staging_tg\" {\n  name     = \"api-staging-tg\"\n  port     = 8080\n  protocol = \"HTTP\"\n  vpc_id   = \"vpc-0a1b2c3d\"\n\n  tags = {\n    Name        = \"api-staging-tg\"\n    Environment = \"staging\"\n  }\n}\n\nresource \"aws_lb_listener\" \"api_staging_listener\" {\n  load_balancer_arn = aws_lb.api_staging_alb.arn\n  port              = 443\n  protocol          = \"HTTPS\"\n  ssl_policy        = \"ELBSecurityPolicy-2016-08\"\n  certificate_arn   = \"arn:aws:acm:us-east-1:123456789012:certificate/abc123\"\n\n  default_action {\n    type             = \"forward\"\n    target_group_arn = aws_lb_target_group.api_staging_tg.arn\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_lb",
+                        "aws_lb_listener",
+                        "aws_lb_target_group",
+                        "lifecycle"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "ALB api-staging-alb has 0 healthy targets and 0 requests for 7 days \u2014 ghost resource",
+                        "$18.40/month wasted ($0.008/LCU-hour fixed ALB charge)",
+                        "ALBs are stateless \u2014 no data loss on destroy",
+                        "all 3 dependent resources must have lifecycle { prevent_destroy = false }: aws_lb, aws_lb_listener, aws_lb_target_group",
+                        "verification: confirm no Route 53 records or other services reference this ALB DNS name before destroying"
+                    ]
+                }
+            },
+            "C9": {
+                "scenario_id": "C9",
+                "description": "ECR repository with no lifecycle policy \u2014 289 untagged images accumulating at $4.83/month",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "SET_LIFECYCLE",
+                "finding": {
+                    "finding_type": "SET_LIFECYCLE",
+                    "resource_type": "ecr_repository",
+                    "repository_name": "api-service",
+                    "repository_arn": "arn:aws:ecr:us-east-1:123456789012:repository/api-service",
+                    "total_images": 347,
+                    "tagged_images": 58,
+                    "untagged_images": 289,
+                    "total_size_gb": 48.3,
+                    "has_lifecycle_policy": false,
+                    "estimated_cost_per_month": 4.83,
+                    "estimated_cost_after_lifecycle_per_month": 0.58,
+                    "estimated_savings_per_month": 4.25,
+                    "detection_reason": "ECR repository api-service has 289 untagged images (48.3 GB total) with no lifecycle policy \u2014 images accumulate indefinitely."
+                },
+                "agent2_decision": {
+                    "action": "SET_LIFECYCLE",
+                    "waste_type": "no_lifecycle_policy",
+                    "detection_window_days": null,
+                    "detection_reason": "ECR repository api-service has 289 untagged images and no lifecycle policy. Adding a lifecycle rule to expire untagged images after 1 day and cap tagged images at 30 saves $4.25/month.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": true,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_ecr_repository\" \"api_service\" {\n  name                 = \"api-service\"\n  image_tag_mutability = \"MUTABLE\"\n\n  image_scanning_configuration {\n    scan_on_push = true\n  }\n\n  tags = {\n    Name        = \"api-service\"\n    Environment = \"production\"\n  }\n}\n# No aws_ecr_lifecycle_policy configured",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_ecr_lifecycle_policy",
+                        "untaggedStatus",
+                        "tagStatus"
+                    ],
+                    "expected_data_loss_acknowledged": true,
+                    "key_facts": [
+                        "289 untagged images accumulating \u2014 no lifecycle policy set",
+                        "48.3 GB total storage at $4.83/month; lifecycle reduces this to ~$0.58/month",
+                        "aws_ecr_lifecycle_policy must be a separate resource (not inline)",
+                        "lifecycle rules must: (1) expire untagged images after 1 day, (2) cap tagged images at 30",
+                        "data_loss_acknowledged must be true \u2014 existing untagged images will be deleted when policy is applied",
+                        "existing aws_ecr_repository block must remain unchanged"
+                    ]
+                }
+            },
+            "C10": {
+                "scenario_id": "C10",
+                "description": "Lambda provisioned concurrency = 5 configured but function has 0 invocations in 30 days",
+                "terraform_mode": 2,
+                "expected_llm_behavior": "validate",
+                "expected_action": "REMOVE_PROVISIONED_CONCURRENCY",
+                "finding": {
+                    "finding_type": "REMOVE_PROVISIONED_CONCURRENCY",
+                    "resource_type": "lambda_function",
+                    "function_name": "order-processor-prod",
+                    "function_arn": "arn:aws:lambda:us-east-1:123456789012:function/order-processor-prod",
+                    "qualifier": "PROVISIONED",
+                    "provisioned_concurrency": 5,
+                    "memory_mb": 512,
+                    "invocations_last_30d": 0,
+                    "cost_per_month": 37.84,
+                    "cost_after_removal_per_month": 0.0,
+                    "detection_reason": "Lambda order-processor-prod has provisioned_concurrency = 5 but 0 invocations in 30 days \u2014 paying $37.84/month for idle warm capacity."
+                },
+                "agent2_decision": {
+                    "action": "REMOVE_PROVISIONED_CONCURRENCY",
+                    "waste_type": "idle_provisioned_concurrency",
+                    "detection_window_days": 30,
+                    "detection_reason": "Lambda order-processor-prod: provisioned_concurrency=5 with 0 invocations for 30 days. Removing provisioned concurrency eliminates $37.84/month charge. On-demand invocation is free up to 1M requests/month.",
+                    "safety_status": "SAFE",
+                    "block_reason": null,
+                    "fallback_action": null,
+                    "pipeline_warning": false,
+                    "data_loss_risk": false,
+                    "blast_radius": null
+                },
+                "current_terraform": "resource \"aws_lambda_function\" \"order_processor_prod\" {\n  filename      = \"order_processor.zip\"\n  function_name = \"order-processor-prod\"\n  role          = aws_iam_role.lambda_exec.arn\n  handler       = \"index.handler\"\n  runtime       = \"nodejs18.x\"\n  memory_size   = 512\n  timeout       = 30\n\n  tags = {\n    Name        = \"order-processor-prod\"\n    Environment = \"production\"\n  }\n}\n\nresource \"aws_lambda_provisioned_concurrency_config\" \"order_processor_prod_pc\" {\n  function_name              = aws_lambda_function.order_processor_prod.function_name\n  qualifier                  = \"PROVISIONED\"\n  provisioned_concurrent_executions = 5\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "OPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "terraform_must_include": [
+                        "aws_lambda_provisioned_concurrency_config"
+                    ],
+                    "expected_data_loss_acknowledged": false,
+                    "key_facts": [
+                        "provisioned_concurrency = 5 with 0 invocations over 30 days \u2014 confirmed idle",
+                        "$37.84/month wasted on warm capacity that is never used",
+                        "removing provisioned concurrency does NOT affect the function itself \u2014 only cold start latency",
+                        "data_loss_acknowledged = false \u2014 no data is stored in provisioned concurrency",
+                        "the aws_lambda_provisioned_concurrency_config resource block must be removed entirely",
+                        "aws_lambda_function block must remain unchanged"
+                    ]
+                }
+            },
+            "CM1": {
+                "scenario_id": "CM1",
+                "description": "2 ghost resources \u2014 unattached EIP + available EBS volume, both DESTROY, different data_loss profiles",
+                "terraform_mode": 2,
+                "findings": [
+                    {
+                        "resource_id": "eipalloc-0a1b2c3d4e5f6001",
+                        "finding": {
+                            "finding_type": "DESTROY",
+                            "resource_type": "eip",
+                            "resource_id": "eipalloc-0a1b2c3d4e5f6001",
+                            "public_ip": "52.14.88.201",
+                            "state": "unattached",
+                            "unattached_since_days": 9,
+                            "cost_per_month": 3.6,
+                            "detection_reason": "EIP 52.14.88.201 unattached for 9 days \u2014 confirmed ghost resource."
+                        },
+                        "agent2_decision": {
+                            "action": "DESTROY",
+                            "waste_type": "ghost_resource",
+                            "detection_window_days": 9,
+                            "detection_reason": "EIP 52.14.88.201 unattached for 9 days. No data loss: EIP carries no data.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "data_loss_risk": false,
+                            "blast_radius": null
+                        },
+                        "current_terraform": "resource \"aws_eip\" \"ghost_eip_6001\" {\n  domain = \"vpc\"\n\n  tags = {\n    Name = \"ghost-eip-6001\"\n  }\n}"
+                    },
+                    {
+                        "resource_id": "vol-0b2c3d4e5f6a7b801",
+                        "finding": {
+                            "finding_type": "DESTROY",
+                            "resource_type": "ebs_volume",
+                            "resource_id": "vol-0b2c3d4e5f6a7b801",
+                            "volume_type": "gp3",
+                            "size_gb": 100,
+                            "state": "available",
+                            "unattached_since_days": 5,
+                            "cost_per_month": 8.0,
+                            "detection_reason": "EBS volume vol-0b2c3d4e5f6a7b801 (100 GB gp3) in available state for 5 days \u2014 confirmed ghost resource. Data loss warning: volume contents will be permanently deleted."
+                        },
+                        "agent2_decision": {
+                            "action": "DESTROY",
+                            "waste_type": "ghost_resource",
+                            "detection_window_days": 5,
+                            "detection_reason": "EBS volume vol-0b2c3d4e5f6a7b801 (100 GB gp3) available for 5 days \u2014 ghost resource. DATA LOSS: volume contents permanently deleted.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "data_loss_risk": true,
+                            "blast_radius": null
+                        },
+                        "current_terraform": "resource \"aws_ebs_volume\" \"ghost_volume_7b801\" {\n  availability_zone = \"us-east-1a\"\n  size              = 100\n  type              = \"gp3\"\n  encrypted         = false\n\n  tags = {\n    Name = \"ghost-volume-7b801\"\n  }\n}"
+                    }
+                ],
+                "llm_evaluation": {
+                    "per_finding": {
+                        "eipalloc-0a1b2c3d4e5f6001": {
+                            "expected_verdict": "OPTIMAL",
+                            "expected_terraform_action": "LLM_GENERATED",
+                            "terraform_must_include": [
+                                "aws_eip",
+                                "lifecycle"
+                            ],
+                            "expected_data_loss_acknowledged": false,
+                            "key_facts": [
+                                "EIP 52.14.88.201 unattached 9 days \u2014 ghost resource",
+                                "$3.60/month wasted on idle allocation",
+                                "EIP carries no data \u2014 data_loss_acknowledged must be false",
+                                "lifecycle prevent_destroy = false required"
+                            ]
+                        },
+                        "vol-0b2c3d4e5f6a7b801": {
+                            "expected_verdict": "OPTIMAL",
+                            "expected_terraform_action": "LLM_GENERATED",
+                            "terraform_must_include": [
+                                "aws_ebs_volume",
+                                "lifecycle"
+                            ],
+                            "expected_data_loss_acknowledged": true,
+                            "key_facts": [
+                                "EBS vol-0b2c3d4e5f6a7b801 (100 GB gp3) available 5 days \u2014 ghost resource",
+                                "$8.00/month wasted",
+                                "DATA LOSS: volume contents permanently deleted \u2014 data_loss_acknowledged must be true",
+                                "lifecycle prevent_destroy = false required"
+                            ]
+                        }
+                    },
+                    "group_summary_must_mention": [
+                        "EIP 52.14.88.201 DESTROY \u2014 no data loss",
+                        "EBS vol-0b2c3d4e5f6a7b801 DESTROY \u2014 DATA LOSS acknowledged",
+                        "$11.60/month total savings"
+                    ]
+                }
+            },
+            "CM2": {
+                "scenario_id": "CM2",
+                "description": "Mixed actions \u2014 CloudWatch log group needs retention policy + idle NAT Gateway needs destroy",
+                "terraform_mode": 2,
+                "findings": [
+                    {
+                        "resource_id": "/aws/lambda/checkout-service",
+                        "finding": {
+                            "finding_type": "SET_RETENTION",
+                            "resource_type": "cloudwatch_log_group",
+                            "log_group_name": "/aws/lambda/checkout-service",
+                            "log_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/checkout-service",
+                            "retention_days": null,
+                            "ingestion_bytes_per_day": 20971520,
+                            "ingestion_gb_per_month": 0.63,
+                            "estimated_cost_per_month": 0.31,
+                            "detection_reason": "Log group /aws/lambda/checkout-service has no retention policy \u2014 logs accumulate indefinitely."
+                        },
+                        "agent2_decision": {
+                            "action": "SET_RETENTION",
+                            "waste_type": "no_retention",
+                            "detection_window_days": null,
+                            "detection_reason": "Log group /aws/lambda/checkout-service has no retention_in_days \u2014 logs accumulate indefinitely at $0.31/month.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "data_loss_risk": false,
+                            "blast_radius": null
+                        },
+                        "current_terraform": "resource \"aws_cloudwatch_log_group\" \"checkout_service_logs\" {\n  name = \"/aws/lambda/checkout-service\"\n\n  tags = {\n    Name        = \"checkout-service-logs\"\n    Environment = \"production\"\n  }\n}"
+                    },
+                    {
+                        "resource_id": "nat-0c1d2e3f4a5b6c701",
+                        "finding": {
+                            "finding_type": "DESTROY",
+                            "resource_type": "nat_gateway",
+                            "resource_id": "nat-0c1d2e3f4a5b6c701",
+                            "name": "nat-gw-legacy-batch",
+                            "vpc_id": "vpc-0b2c3d4e",
+                            "subnet_id": "subnet-0b2c3d4e",
+                            "state": "available",
+                            "bytes_processed_avg_per_day": 4096,
+                            "idle_days": 21,
+                            "associated_eip_id": "eipalloc-0c1d2e3f4a5b6c701",
+                            "associated_eip_public_ip": "34.201.77.43",
+                            "cost_per_month": 33.48,
+                            "detection_reason": "NAT Gateway nat-gw-legacy-batch processed 4 KB/day average over 21 days \u2014 idle for 3 weeks."
+                        },
+                        "agent2_decision": {
+                            "action": "DESTROY",
+                            "waste_type": "ghost_resource",
+                            "detection_window_days": 21,
+                            "detection_reason": "NAT Gateway nat-gw-legacy-batch idle (4 KB/day) for 21 days. NAT Gateways are stateless. Associated EIP eipalloc-0c1d2e3f4a5b6c701 should also be released.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "data_loss_risk": false,
+                            "blast_radius": null
+                        },
+                        "current_terraform": "resource \"aws_eip\" \"nat_gw_legacy_eip\" {\n  domain = \"vpc\"\n\n  tags = {\n    Name = \"nat-gw-legacy-eip\"\n  }\n}\n\nresource \"aws_nat_gateway\" \"nat_gw_legacy_batch\" {\n  allocation_id = aws_eip.nat_gw_legacy_eip.id\n  subnet_id     = \"subnet-0b2c3d4e\"\n\n  tags = {\n    Name        = \"nat-gw-legacy-batch\"\n    Environment = \"production\"\n  }\n}"
+                    }
+                ],
+                "llm_evaluation": {
+                    "per_finding": {
+                        "/aws/lambda/checkout-service": {
+                            "expected_verdict": "OPTIMAL",
+                            "expected_terraform_action": "LLM_GENERATED",
+                            "terraform_must_include": [
+                                "aws_cloudwatch_log_group",
+                                "retention_in_days"
+                            ],
+                            "expected_data_loss_acknowledged": false,
+                            "key_facts": [
+                                "log group /aws/lambda/checkout-service has no retention_in_days set",
+                                "0.63 GB/month ingestion at $0.31/month \u2014 adding retention saves ongoing cost",
+                                "fix: add retention_in_days to existing aws_cloudwatch_log_group block",
+                                "data_loss_acknowledged = false \u2014 retention does not delete existing logs immediately"
+                            ]
+                        },
+                        "nat-0c1d2e3f4a5b6c701": {
+                            "expected_verdict": "OPTIMAL",
+                            "expected_terraform_action": "LLM_GENERATED",
+                            "terraform_must_include": [
+                                "aws_nat_gateway",
+                                "aws_eip",
+                                "lifecycle"
+                            ],
+                            "expected_data_loss_acknowledged": false,
+                            "key_facts": [
+                                "NAT Gateway nat-gw-legacy-batch processed only 4 KB/day over 21 days \u2014 confirmed idle",
+                                "$33.48/month wasted on fixed NAT Gateway charge",
+                                "NAT Gateways are stateless \u2014 data_loss_acknowledged = false",
+                                "lifecycle prevent_destroy = false required on both aws_nat_gateway and aws_eip",
+                                "associated EIP eipalloc-0c1d2e3f4a5b6c701 must also be released"
+                            ]
+                        }
+                    },
+                    "group_summary_must_mention": [
+                        "/aws/lambda/checkout-service SET_RETENTION",
+                        "nat-gw-legacy-batch DESTROY \u2014 no data loss",
+                        "$33.79/month total savings"
+                    ]
+                }
+            },
+            "CM3": {
+                "scenario_id": "CM3",
+                "description": "Mixed verdicts \u2014 log group already compliant (OPTIMAL/NONE) + ECR no lifecycle policy (OPTIMAL/LLM_GENERATED)",
+                "terraform_mode": 2,
+                "findings": [
+                    {
+                        "resource_id": "/aws/lambda/user-auth",
+                        "finding": {
+                            "finding_type": "CLEAN",
+                            "resource_type": "cloudwatch_log_group",
+                            "log_group_name": "/aws/lambda/user-auth",
+                            "log_group_arn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/user-auth",
+                            "retention_days": 14,
+                            "ingestion_bytes_per_day": 8388608,
+                            "ingestion_gb_per_month": 0.25,
+                            "estimated_cost_per_month": 0.12,
+                            "detection_reason": "Log group /aws/lambda/user-auth already has retention_in_days = 14. No action required."
+                        },
+                        "agent2_decision": {
+                            "action": "CLEAN",
+                            "waste_type": "none",
+                            "detection_window_days": null,
+                            "detection_reason": "Log group /aws/lambda/user-auth has retention_in_days = 14 \u2014 already compliant, no action needed.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "data_loss_risk": false,
+                            "blast_radius": null
+                        },
+                        "current_terraform": "resource \"aws_cloudwatch_log_group\" \"user_auth_logs\" {\n  name              = \"/aws/lambda/user-auth\"\n  retention_in_days = 14\n\n  tags = {\n    Name        = \"user-auth-logs\"\n    Environment = \"production\"\n  }\n}"
+                    },
+                    {
+                        "resource_id": "backend-service-ecr",
+                        "finding": {
+                            "finding_type": "SET_LIFECYCLE",
+                            "resource_type": "ecr_repository",
+                            "repository_name": "backend-service",
+                            "repository_arn": "arn:aws:ecr:us-east-1:123456789012:repository/backend-service",
+                            "total_images": 412,
+                            "tagged_images": 44,
+                            "untagged_images": 368,
+                            "total_size_gb": 61.7,
+                            "has_lifecycle_policy": false,
+                            "estimated_cost_per_month": 6.17,
+                            "estimated_cost_after_lifecycle_per_month": 0.44,
+                            "estimated_savings_per_month": 5.73,
+                            "detection_reason": "ECR repository backend-service has 368 untagged images (61.7 GB) with no lifecycle policy."
+                        },
+                        "agent2_decision": {
+                            "action": "SET_LIFECYCLE",
+                            "waste_type": "no_lifecycle_policy",
+                            "detection_window_days": null,
+                            "detection_reason": "ECR repository backend-service has 368 untagged images and no lifecycle policy. Adding lifecycle rules saves $5.73/month.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "data_loss_risk": true,
+                            "blast_radius": null
+                        },
+                        "current_terraform": "resource \"aws_ecr_repository\" \"backend_service\" {\n  name                 = \"backend-service\"\n  image_tag_mutability = \"MUTABLE\"\n\n  image_scanning_configuration {\n    scan_on_push = true\n  }\n\n  tags = {\n    Name        = \"backend-service\"\n    Environment = \"production\"\n  }\n}\n# No aws_ecr_lifecycle_policy configured"
+                    }
+                ],
+                "llm_evaluation": {
+                    "per_finding": {
+                        "/aws/lambda/user-auth": {
+                            "expected_verdict": "OPTIMAL",
+                            "expected_terraform_action": "NONE",
+                            "terraform_must_include": null,
+                            "expected_data_loss_acknowledged": false,
+                            "key_facts": [
+                                "retention_in_days = 14 is already set \u2014 resource is compliant",
+                                "terraform_action must be NONE \u2014 do NOT generate any Terraform for this finding",
+                                "terraform_block must be null",
+                                "ingestion volume is low (0.25 GB/month) \u2014 S3 archival not warranted"
+                            ]
+                        },
+                        "backend-service-ecr": {
+                            "expected_verdict": "OPTIMAL",
+                            "expected_terraform_action": "LLM_GENERATED",
+                            "terraform_must_include": [
+                                "aws_ecr_lifecycle_policy",
+                                "untaggedStatus",
+                                "tagStatus"
+                            ],
+                            "expected_data_loss_acknowledged": true,
+                            "key_facts": [
+                                "368 untagged images accumulating \u2014 no lifecycle policy set",
+                                "61.7 GB total; lifecycle reduces cost from $6.17 to ~$0.44/month",
+                                "aws_ecr_lifecycle_policy must be a separate resource (not inline)",
+                                "rules: expire untagged images after 1 day, cap tagged images at 30",
+                                "data_loss_acknowledged = true \u2014 existing untagged images will be deleted",
+                                "aws_ecr_repository block must remain unchanged"
+                            ]
+                        }
+                    },
+                    "group_summary_must_mention": [
+                        "/aws/lambda/user-auth CLEAN \u2014 already compliant, no Terraform generated",
+                        "backend-service ECR SET_LIFECYCLE \u2014 $5.73/month savings",
+                        "$5.73/month total savings (only 1 of 2 findings actioned)"
                     ]
                 }
             }

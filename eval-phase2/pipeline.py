@@ -7,23 +7,27 @@ Usage:
   python pipeline.py --tiers tier_a tier_d
   python pipeline.py --scenario A1           # single scenario
 """
-import argparse, json, re, sys, time
+
+import argparse, json, os, sys
 from pathlib import Path
 
 import config
 from prompts.prompt_builder import build_prompt
-from runners import groq_runner, google_runner, mistral_runner, ollama_runner
-from validators import (
-    terraform_validate, terraform_plan,
-    checkov_runner, opa_runner,
-    execution_order, nl_quality,
-)
+from runners import get_runner
+from validators import execution_order, nl_quality
+from validators.checkov import checkov_runner
+from validators.OPA import opa_runner
+from validators.terraform import terraform_plan, terraform_validate
+
 
 # ---------------------------------------------------------------------------
-RUNNER_MAP = {
-    "groq":    groq_runner,
-    "google":  google_runner,
-    "mistral": mistral_runner,
+# API keys — loaded once from environment
+# ---------------------------------------------------------------------------
+
+API_KEYS = {
+    "groq":    os.environ.get("GROQ_API_KEY", ""),
+    "google":  os.environ.get("GOOGLE_API_KEY", ""),
+    "mistral": os.environ.get("MISTRAL_API_KEY", ""),
 }
 
 
@@ -31,21 +35,8 @@ RUNNER_MAP = {
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _parse_response(raw: str) -> dict:
-    """Extract JSON from raw LLM text (strips markdown fences if present)."""
-    if not raw:
-        return {}
-    # Strip ```json ... ``` fences
-    match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
-    text = match.group(1) if match else raw
-    try:
-        return json.loads(text.strip())
-    except json.JSONDecodeError:
-        return {"_raw": raw, "_parse_error": True}
-
-
 def _ensure_workspace() -> Path:
-    """ creates the tf_workspace directory if it doesn't exist - the mock AWS provider """
+    """Creates the tf_workspace directory and writes the mock provider stub."""
     ws = config.TF_WORKSPACE
     ws.mkdir(exist_ok=True)
     provider_tf = ws / "provider.tf"
@@ -73,58 +64,138 @@ def _load_scenarios(tiers: list[str], scenario_filter: str | None) -> list[dict]
 
 
 def _run_validators(scenario: dict, llm_response: dict, workspace: Path) -> dict:
-    mode = scenario.get("terraform_mode", 1)
-    tf   = llm_response.get("terraform_output", "")
+    mode     = scenario.get("terraform_mode", 1)
+    tier     = scenario.get("_tier", "")
+    llm_eval = scenario.get("llm_evaluation", {})
+
+    # Resolve terraform content — differs by scenario shape
+    tf        = llm_response.get("terraform_block") or ""
+    tf_action = llm_response.get("terraform_action", "")
+
+    # Multi-finding Tier C: concatenate all per-finding terraform blocks
+    if "findings" in llm_response:
+        generated_blocks = [
+            f.get("terraform_block") or ""
+            for f in llm_response["findings"].values()
+            if isinstance(f, dict) and f.get("terraform_action") == "LLM_GENERATED"
+            and f.get("terraform_block")
+        ]
+        if generated_blocks:
+            tf        = "\n\n".join(generated_blocks)
+            tf_action = "LLM_GENERATED"
 
     results = {}
 
-    # Code pipeline — only when Terraform was produced
-    if mode in (2, 3) and tf:
+    # ── Terraform validators — only when LLM actually generated a block ──────
+    if tf_action == "LLM_GENERATED" and tf:
         results["terraform_validate"] = vars(terraform_validate.validate(tf, workspace))
         results["terraform_plan"]     = vars(terraform_plan.validate(tf, workspace))
         results["checkov"]            = vars(checkov_runner.validate(tf, workspace))
         results["opa"]                = vars(opa_runner.validate(tf, workspace))
-    
-    elif mode in (2, 3):
-        # Mode 2/3 but LLM produced no Terraform — zero score on all code checks
+    elif tf_action == "LLM_GENERATED" and not tf:
+        # LLM claimed to generate but the block is absent — zero-score validators
         for k in ("terraform_validate", "terraform_plan", "checkov", "opa"):
-            results[k] = {"name": k, "passed": False, "score": 0.0, "details": "No Terraform produced"}
+            results[k] = {"name": k, "passed": False, "score": 0.0,
+                          "details": "LLM_GENERATED declared but terraform_block is empty"}
 
-    # Execution order — only for bundle scenarios (Tier B)
-    if scenario.get("_tier") == "tier_b":
+    # ── Execution order — Tier B only ────────────────────────────────────────
+    if tier == "tier_b":
         results["execution_order"] = vars(execution_order.validate(scenario, llm_response))
 
-    # NL quality — every mode
+    # ── NL quality — every mode ──────────────────────────────────────────────
     results["nl_quality"] = vars(nl_quality.validate(scenario, llm_response))
 
-    # Behavior correctness — did LLM pick the right behavior?
-    expected = scenario.get("expected_llm_behavior", "validate")
-    actual   = llm_response.get("behavior", "")
-    correct  = actual == expected
-    results["behavior_correct"] = {
-        "name": "behavior_correct", "passed": correct,
-        "score": 1.0 if correct else 0.0,
-        "details": f"expected={expected} actual={actual}",
-    }
-
-    # Mode 3 diagnosis correctness — NL judge already covers this,
-    # but we add a binary flag for the scorer
+    # ── Behavior / verdict correctness ───────────────────────────────────────
     if mode == 3:
-        diagnosis_score = results["nl_quality"].get("breakdown", {}).get("diagnosis_accuracy", 0)
-        correct_diag = diagnosis_score >= 3   # 3/5 threshold
+        # Tier D crash RCA: compare root_cause_category
+        expected_v = llm_eval.get("expected_root_cause_category", "")
+        actual_v   = llm_response.get("root_cause_category", "")
+        correct    = actual_v == expected_v
+        results["behavior_correct"] = {
+            "name": "behavior_correct", "passed": correct,
+            "score": 1.0 if correct else 0.0,
+            "details": f"expected={expected_v}  actual={actual_v}",
+        }
+        # diagnosis_correct — derived from the nl_quality judge dimension
+        diag_score = results["nl_quality"].get("breakdown", {}).get("diagnosis_accuracy", 0)
         results["diagnosis_correct"] = {
-            "name": "diagnosis_correct", "passed": correct_diag,
-            "score": diagnosis_score / 5.0,
-            "details": f"diagnosis_accuracy={diagnosis_score}/5",
+            "name": "diagnosis_correct", "passed": diag_score >= 3,
+            "score": diag_score / 5.0,
+            "details": f"diagnosis_accuracy={diag_score}/5",
+        }
+
+    elif "findings" in scenario:
+        # Tier C multi-finding: fraction of per-finding verdicts that match
+        per_finding       = llm_eval.get("per_finding", {})
+        finding_responses = llm_response.get("findings", {})
+        if per_finding:
+            correct_count = sum(
+                1 for rid, exp in per_finding.items()
+                if finding_responses.get(rid, {}).get("verdict") == exp.get("expected_verdict")
+            )
+            total = len(per_finding)
+            results["behavior_correct"] = {
+                "name": "behavior_correct", "passed": correct_count == total,
+                "score": correct_count / total,
+                "details": f"verdicts correct: {correct_count}/{total}",
+            }
+        else:
+            results["behavior_correct"] = {
+                "name": "behavior_correct", "passed": False,
+                "score": 0.0, "details": "No per_finding llm_evaluation defined",
+            }
+
+    elif tier == "tier_b":
+        # Tier B multi-instance: fraction of per-instance verdicts that match
+        per_instance   = llm_eval.get("per_instance", {})
+        inst_responses = llm_response.get("instances", {})
+        if per_instance:
+            correct_count = sum(
+                1 for iid, exp in per_instance.items()
+                if inst_responses.get(iid, {}).get("verdict") == exp.get("expected_verdict")
+            )
+            total = len(per_instance)
+            results["behavior_correct"] = {
+                "name": "behavior_correct", "passed": correct_count == total,
+                "score": correct_count / total,
+                "details": f"verdicts correct: {correct_count}/{total}",
+            }
+        else:
+            results["behavior_correct"] = {
+                "name": "behavior_correct", "passed": False,
+                "score": 0.0, "details": "No per_instance llm_evaluation defined",
+            }
+
+    else:
+        # Tier A/C single-resource: compare verdict directly
+        expected_v = llm_eval.get("expected_verdict", "")
+        actual_v   = llm_response.get("verdict", "")
+        correct    = actual_v == expected_v
+        results["behavior_correct"] = {
+            "name": "behavior_correct", "passed": correct,
+            "score": 1.0 if correct else 0.0,
+            "details": f"expected={expected_v}  actual={actual_v}",
         }
 
     return results
+
+
+def _expected_verdict_for(scenario: dict) -> object:
+    """Returns the expected_verdict value to store in the output record."""
+    llm_eval = scenario.get("llm_evaluation", {})
+    mode     = scenario.get("terraform_mode", 1)
+    if mode == 3:
+        return llm_eval.get("expected_root_cause_category")
+    if "findings" in scenario:
+        return llm_eval.get("per_finding")   # dict keyed by resource_id
+    return llm_eval.get("expected_verdict")
 
 
 def _save_output(model_name: str, scenario_id: str, data: dict) -> None:
     out_dir = config.OUTPUTS_DIR / model_name
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{scenario_id}.json").write_text(json.dumps(data, indent=2))
+
 
 # ---------------------------------------------------------------------------
 # Main loop
@@ -143,9 +214,11 @@ def run(models: list[str], tiers: list[str], scenario_filter: str | None = None)
     for model_name in models:
         model_cfg = config.MODELS[model_name]
         provider  = model_cfg["provider"]
-        runner    = RUNNER_MAP.get(provider)
-        if runner is None:
-            print(f"[skip] no runner for provider={provider}")
+
+        try:
+            runner = get_runner(model_cfg, API_KEYS)
+        except ValueError as e:
+            print(f"[skip] {e}")
             continue
 
         print(f"{'='*60}")
@@ -154,40 +227,54 @@ def run(models: list[str], tiers: list[str], scenario_filter: str | None = None)
 
         for scenario in scenarios:
             sid  = scenario["_scenario_id"]
+            tier = scenario["_tier"]
             mode = scenario.get("terraform_mode")
 
-            # Skip if output already exists (resume support)
+            # Skip if output already exists
             out_path = config.OUTPUTS_DIR / model_name / f"{sid}.json"
             if out_path.exists():
                 print(f"  [{sid}] already done — skipping")
                 continue
 
-            print(f"  [{sid}] mode={mode}  behavior={scenario.get('expected_llm_behavior')} ...", end=" ", flush=True)
+            # Determine a display label for the scenario type
+            if "findings" in scenario:
+                label = f"multi-finding ({len(scenario['findings'])})"
+            elif scenario.get("flagged_resources"):
+                label = f"multi-instance ({len(scenario['flagged_resources'])})" \
+                        if len(scenario["flagged_resources"]) > 1 \
+                        else scenario["flagged_resources"][0].get("agent2_decision", {}).get("action", "")
+            else:
+                label = scenario.get("agent2_decision", {}).get("action", "")
+
+            print(f"  [{sid}] tier={tier}  mode={mode}  {label} ...", end=" ", flush=True)
 
             system, user = build_prompt(scenario)
 
-            raw = runner.call(
-                model_cfg["model_id"], system, user,
-                interval=model_cfg.get("interval_seconds", 5),
-            )
+            result       = runner.run(system, user)
+            llm_response = result["parsed"] or {}
+            raw          = result["raw_response"] or ""
 
-            llm_response = _parse_response(raw)
-            validators   = _run_validators(scenario, llm_response, workspace)
+            if result["parse_error"]:
+                print(f"PARSE_ERROR ({result['parse_error'][:60]})")
+
+            validators = _run_validators(scenario, llm_response, workspace)
 
             output = {
-                "scenario_id":       sid,
-                "tier":              scenario["_tier"],
-                "terraform_mode":    mode,
-                "expected_behavior": scenario.get("expected_llm_behavior"),
-                "model":             model_name,
-                "llm_response":      llm_response,
-                "validators":        validators,
-                "raw_output":        raw,
+                "scenario_id":      sid,
+                "tier":             tier,
+                "terraform_mode":   mode,
+                "expected_verdict": _expected_verdict_for(scenario),
+                "model":            model_name,
+                "llm_response":     llm_response,
+                "validators":       validators,
+                "raw_output":       raw,
+                "latency_ms":       result.get("latency_ms"),
+                "attempts":         result.get("attempts"),
             }
 
             _save_output(model_name, sid, output)
-            behavior_ok = validators.get("behavior_correct", {}).get("passed", False)
-            print(f"{'OK' if behavior_ok else 'WRONG_BEHAVIOR'}  saved")
+            verdict_ok = validators.get("behavior_correct", {}).get("passed", False)
+            print(f"{'OK' if verdict_ok else 'WRONG_VERDICT'}  saved")
 
     print("\nDone. Run scorer.py to generate leaderboard.")
 

@@ -1,5 +1,5 @@
 """
-Reads all outputs/, applies per-mode weights, writes results/leaderboard.json.
+Reads all outputs/, applies per-weight-key weights, writes results/leaderboard.json.
 
 Usage:
   python scorer.py
@@ -11,19 +11,61 @@ from collections import defaultdict
 
 import config
 
+def _weight_key(data: dict) -> str:
+    """
+    Resolve which WEIGHTS entry to use for a scored output record.
 
-def _compute_score(validators: dict, mode: int) -> tuple[float, dict]:
+    Two orthogonal axes:
+      multi  — LLM response has per-instance "instances" dict  → adds execution_order
+      tf     — LLM emitted terraform_action = LLM_GENERATED    → adds terraform validators
+
+    Combinations:
+      multi=False, tf=False  → "nl"
+      multi=False, tf=True   → "tf"
+      multi=True,  tf=False  → "multi_nl"
+      multi=True,  tf=True   → "multi_tf"
+      mode 3 (crash RCA)     → "3"  (always, regardless of terraform)
     """
-    Apply WEIGHTS[mode] to validator results.
+    if data.get("terraform_mode") == 3:
+        return "3"
+
+    llm_resp = data.get("llm_response", {})
+
+    # Tier C multi-finding
+    if "findings" in llm_resp:
+        is_tf = any(
+            v.get("terraform_action") == "LLM_GENERATED"
+            for v in llm_resp["findings"].values()
+            if isinstance(v, dict)
+        )
+        return "c_multi_tf" if is_tf else "c_multi_nl"
+
+    # Tier B multi-instance — check per-instance terraform_action
+    if "instances" in llm_resp:
+        is_tf = any(
+            v.get("terraform_action") == "LLM_GENERATED"
+            for v in llm_resp["instances"].values()
+            if isinstance(v, dict)
+        )
+        return "multi_tf" if is_tf else "multi_nl"
+
+    # Single resource
+    is_tf = llm_resp.get("terraform_action") == "LLM_GENERATED"
+    return "tf" if is_tf else "nl"
+
+def _compute_score(validators: dict, weight_key: str) -> tuple[float, dict]:
+    """
+    Apply WEIGHTS[weight_key] to validator results.
     Returns (total_score_0_to_100, breakdown_dict).
+    Missing validators default to score 0.0 (no KeyError).
     """
-    weights   = config.WEIGHTS.get(mode, config.WEIGHTS[1])
+    weights   = config.WEIGHTS.get(weight_key, config.WEIGHTS["nl"])
     breakdown = {}
     total     = 0.0
 
     for key, weight in weights.items():
-        result = validators.get(key, {})
-        raw    = result.get("score", 0.0) if isinstance(result, dict) else 0.0
+        result   = validators.get(key, {})
+        raw      = result.get("score", 0.0) if isinstance(result, dict) else 0.0
         weighted = raw * weight
         breakdown[key] = {
             "raw":      round(raw, 3),
@@ -57,18 +99,42 @@ def run(tiers: list[str]) -> None:
             if tiers and not any(tier == t for t in tiers):
                 continue
 
-            mode        = data.get("terraform_mode", 1)
-            validators  = data.get("validators", {})
-            score, bkd  = _compute_score(validators, mode)
+            wkey       = _weight_key(data)
+            validators = data.get("validators", {})
+            score, bkd = _compute_score(validators, wkey)
+
+            # Verdict correctness — pipeline saves expected_verdict from llm_evaluation.
+            # LLM emits "verdict" (Mode 1/2) or "root_cause_category" (Mode 3).
+            llm_resp = data.get("llm_response", {})
+            mode     = data.get("terraform_mode", 1)
+            if mode == 3:
+                actual_verdict = llm_resp.get("root_cause_category", "")
+            elif "findings" in llm_resp:
+                # Tier C multi-finding: collect per-resource verdicts
+                actual_verdict = {
+                    rid: f.get("verdict", "")
+                    for rid, f in llm_resp["findings"].items()
+                    if isinstance(f, dict)
+                }
+            elif "instances" in llm_resp:
+                # Tier B multi-instance: collect per-instance verdicts
+                actual_verdict = {
+                    iid: inst.get("verdict", "")
+                    for iid, inst in llm_resp["instances"].items()
+                    if isinstance(inst, dict)
+                }
+            else:
+                actual_verdict = llm_resp.get("verdict", "")
 
             model_results[model_name][sid] = {
-                "scenario_id":       sid,
-                "tier":              tier,
-                "mode":              mode,
-                "expected_behavior": data.get("expected_behavior"),
-                "actual_behavior":   data.get("llm_response", {}).get("behavior"),
-                "score":             score,
-                "breakdown":         bkd,
+                "scenario_id":    sid,
+                "tier":           tier,
+                "mode":           mode,
+                "weight_key":     wkey,
+                "expected_verdict": data.get("expected_verdict"),
+                "actual_verdict":   actual_verdict,
+                "score":          score,
+                "breakdown":      bkd,
             }
             all_scenario_ids.add(sid)
 
@@ -82,29 +148,35 @@ def run(tiers: list[str]) -> None:
         scores    = [r["score"] for r in results.values()]
         avg_score = round(sum(scores) / len(scores), 2) if scores else 0.0
 
-        # Per-mode averages
-        by_mode: dict[int, list] = defaultdict(list)
+        # Per-weight-key averages
+        by_wkey: dict[str, list] = defaultdict(list)
         for r in results.values():
-            by_mode[r["mode"]].append(r["score"])
-        mode_avgs = {f"mode_{m}": round(sum(v)/len(v), 2) for m, v in sorted(by_mode.items())}
+            by_wkey[r["weight_key"]].append(r["score"])
+        wkey_avgs = {
+            wk: round(sum(v) / len(v), 2)
+            for wk, v in sorted(by_wkey.items())
+        }
 
-        # Behavior correctness rate
-        behavior_results = [
+        # Verdict correctness rate (single-instance / Mode 3 only; skip Tier B dict verdicts)
+        scorable = [
             r for r in results.values()
-            if r.get("expected_behavior") is not None
+            if isinstance(r.get("expected_verdict"), str)
+            and isinstance(r.get("actual_verdict"), str)
         ]
-        correct_behavior = sum(
-            1 for r in behavior_results
-            if r.get("actual_behavior") == r.get("expected_behavior")
+        correct_verdicts = sum(
+            1 for r in scorable
+            if r["actual_verdict"] == r["expected_verdict"]
         )
-        behavior_rate = round(correct_behavior / len(behavior_results) * 100, 1) if behavior_results else 0.0
+        verdict_rate = (
+            round(correct_verdicts / len(scorable) * 100, 1) if scorable else 0.0
+        )
 
         leaderboard.append({
             "model":          model_name,
             "avg_score":      avg_score,
-            "behavior_rate":  behavior_rate,
+            "verdict_rate":   verdict_rate,
             "scenarios_run":  len(results),
-            **mode_avgs,
+            **{f"wkey_{k}": v for k, v in wkey_avgs.items()},
             "results":        results,
         })
 
@@ -114,17 +186,18 @@ def run(tiers: list[str]) -> None:
     (results_dir / "leaderboard.json").write_text(json.dumps(out, indent=2))
 
     # Print summary table
-    print(f"\n{'Model':<25} {'Avg':>6} {'Behavior%':>10} {'Mode1':>7} {'Mode2':>7} {'Mode3':>7}")
-    print("-" * 65)
+    wkeys = ["nl", "tf", "multi_nl", "multi_tf", "c_multi_nl", "c_multi_tf", "3"]
+    header = f"{'Model':<25} {'Avg':>6} {'Verdict%':>9}"
+    for wk in wkeys:
+        header += f"  {wk:>8}"
+    print(f"\n{header}")
+    print("-" * (25 + 6 + 9 + 3 + len(wkeys) * 10))
     for entry in leaderboard:
-        print(
-            f"{entry['model']:<25} "
-            f"{entry['avg_score']:>6.1f} "
-            f"{entry['behavior_rate']:>9.1f}% "
-            f"{entry.get('mode_1', 0):>7.1f} "
-            f"{entry.get('mode_2', 0):>7.1f} "
-            f"{entry.get('mode_3', 0):>7.1f}"
-        )
+        row = f"{entry['model']:<25} {entry['avg_score']:>6.1f} {entry['verdict_rate']:>8.1f}%"
+        for wk in wkeys:
+            val = entry.get(f"wkey_{wk}", "-")
+            row += f"  {val:>8}" if isinstance(val, float) else f"  {'—':>8}"
+        print(row)
     print(f"\nLeaderboard saved → {results_dir / 'leaderboard.json'}")
 
 

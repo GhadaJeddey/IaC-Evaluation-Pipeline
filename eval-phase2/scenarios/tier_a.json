@@ -6,8 +6,6 @@
                 "scenario_id": "A1",
                 "description": "Steady instance, idle, no relationships",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "STOP",
                 "app_group": "APP-A1",
                 "flagged_resources": [
                     {
@@ -75,8 +73,6 @@
                 "scenario_id": "A2",
                 "description": "Steady instance, zombie (stopped > 30 days, near-zero network)",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "TERMINATE",
                 "app_group": "APP-A2",
                 "flagged_resources": [
                     {
@@ -127,10 +123,10 @@
                 "current_terraform": "resource \"aws_instance\" \"old_batch_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 40\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"old-batch-server-01\"\n    Environment = \"production\"\n  }\n}",
                 "llm_evaluation": {
                     "expected_verdict": "OPTIMAL",
-                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_terraform_action": "SCRIPT_HANDLES",
                     "expected_pipeline_warning_acknowledged": false,
-                    "terraform_block_expected": true,
-                    "terraform_change": "Remove aws_instance resource block for old-batch-server-01 (stopped 38 days, zombie)",
+                    "terraform_block_expected": false,
+                    "terraform_change": null,
                     "terraform_must_include": [
                         "aws_instance"
                     ],
@@ -146,8 +142,6 @@
                 "scenario_id": "A3",
                 "description": "Steady instance, oversized, no relationships",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DOWNSIZE",
                 "app_group": "APP-A3",
                 "flagged_resources": [
                     {
@@ -215,8 +209,6 @@
                 "scenario_id": "A4",
                 "description": "Bursty instance, peak CPU never exceeded 20% threshold",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DOWNSIZE",
                 "app_group": "APP-A4",
                 "flagged_resources": [
                     {
@@ -284,8 +276,6 @@
                 "scenario_id": "A5",
                 "description": "Dependent primary, tightened thresholds met, action capped at DOWNSIZE",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DOWNSIZE",
                 "app_group": "APP-A5",
                 "flagged_resources": [
                     {
@@ -353,8 +343,6 @@
                 "scenario_id": "A6",
                 "description": "Dependent secondary, primary peak cool \u2014 secondary-safe downsize succeeds",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DOWNSIZE",
                 "app_group": "APP-A6",
                 "flagged_resources": [
                     {
@@ -422,8 +410,6 @@
                 "scenario_id": "A7",
                 "description": "Dependent secondary, primary runs hot \u2014 no safe downsize, NEEDS_REVIEW",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "NEEDS_REVIEW",
                 "app_group": "APP-A7",
                 "flagged_resources": [
                     {
@@ -486,8 +472,10 @@
                     "key_facts": [
                         "dependent_secondary \u2014 primary runs hot at P99 87.4%",
                         "no safe fallback instance type exists for the secondary",
-                        "NEEDS_REVIEW is correct \u2014 human must confirm before any action",
-                        "blast_radius high \u2014 i-primary-hot would be affected"
+                        "NEEDS_REVIEW is the right call \u2014 human must confirm before any action",
+                        "blast_radius high \u2014 i-primary-hot would be affected",
+                        "LLM cannot find a better solution \u2014 the blocking constraint is the primary's load",
+                        "LLM should output OPTIMAL: human escalation is itself the correct outcome"
                     ],
                     "terraform_change": null,
                     "terraform_must_include": null
@@ -497,8 +485,6 @@
                 "scenario_id": "A8",
                 "description": "Backup instance, primary peak cool \u2014 secondary-safe downsize succeeds",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "DOWNSIZE",
                 "app_group": "APP-A8",
                 "flagged_resources": [
                     {
@@ -566,8 +552,6 @@
                 "scenario_id": "A9",
                 "description": "Steady idle + reads_from DynamoDB at 30% confidence \u2014 STOP with pipeline_warning",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "STOP",
                 "app_group": "APP-A9",
                 "flagged_resources": [
                     {
@@ -649,8 +633,6 @@
                 "scenario_id": "A10",
                 "description": "Steady idle + writes_to S3 at 30% confidence \u2014 STOP with pipeline_warning",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "STOP",
                 "app_group": "APP-A10",
                 "flagged_resources": [
                     {
@@ -732,8 +714,6 @@
                 "scenario_id": "A11",
                 "description": "Steady idle + failover_for EC2 at 100% (manual declaration) \u2014 NEEDS_REVIEW",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "NEEDS_REVIEW",
                 "app_group": "APP-A11",
                 "flagged_resources": [
                     {
@@ -809,9 +789,10 @@
                     "key_facts": [
                         "failover_for relationship at 100% confidence (manual declaration)",
                         "Type E relationship \u2014 hard block on any action",
-                        "NEEDS_REVIEW is correct \u2014 standby instance must not be stopped",
+                        "NEEDS_REVIEW is the right call \u2014 standby instance must not be stopped",
                         "blast_radius high: app-primary-prod would lose failover coverage",
-                        "redundancy_node=true \u2014 engineer must decide"
+                        "redundancy_node=true \u2014 engineer must decide",
+                        "LLM should output OPTIMAL: the hard block is correct and human escalation is the right outcome"
                     ],
                     "terraform_change": null,
                     "terraform_must_include": null
@@ -821,8 +802,6 @@
                 "scenario_id": "A12",
                 "description": "Steady idle + replicates_to EC2 at 100% (manual declaration) \u2014 NEEDS_REVIEW",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "NEEDS_REVIEW",
                 "app_group": "APP-A12",
                 "flagged_resources": [
                     {
@@ -898,9 +877,10 @@
                     "key_facts": [
                         "replicates_to relationship at 100% confidence (manual declaration)",
                         "Type E relationship \u2014 hard block on any action",
-                        "NEEDS_REVIEW is correct \u2014 replication target must not be stopped",
+                        "NEEDS_REVIEW is the right call \u2014 replication target must not be stopped",
                         "blast_radius high: data-source-prod would lose replication",
-                        "redundancy_node=true \u2014 engineer must decide"
+                        "redundancy_node=true \u2014 engineer must decide",
+                        "LLM should output OPTIMAL: the hard block is correct and human escalation is the right outcome"
                     ],
                     "terraform_change": null,
                     "terraform_must_include": null
@@ -910,8 +890,6 @@
                 "scenario_id": "A13",
                 "description": "Steady idle + sends_logs_to S3 at 30% \u2014 STOP, Type D excluded, no effect on action",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "STOP",
                 "app_group": "APP-A13",
                 "flagged_resources": [
                     {
@@ -992,8 +970,6 @@
                 "scenario_id": "A14",
                 "description": "Steady idle + reads_from DynamoDB (30%) + sends_logs_to EC2 (30%) \u2014 STOP + pipeline_warning, Type D excluded",
                 "terraform_mode": 1,
-                "expected_llm_behavior": "validate",
-                "expected_action": "STOP",
                 "app_group": "APP-A14",
                 "flagged_resources": [
                     {
@@ -1087,8 +1063,6 @@
                 "scenario_id": "A15",
                 "description": "Bursty role derived from name pattern at 30% confidence \u2014 14 days of metrics show CV=0.06 with no burst events \u2014 LLM should override NEEDS_REVIEW and recommend DOWNSIZE as steady",
                 "terraform_mode": 2,
-                "expected_llm_behavior": "override",
-                "expected_action": "DOWNSIZE",
                 "app_group": "APP-A15",
                 "flagged_resources": [
                     {
@@ -1153,6 +1127,351 @@
                         "Agent 2 NEEDS_REVIEW is incorrect \u2014 evidence clearly shows steady pattern",
                         "LLM should override with DOWNSIZE to c5.xlarge treating instance as steady"
                     ]
+                }
+            },
+            "A16": {
+                "scenario_id": "A16",
+                "description": "Steady running instance, Agent 2 recommends STOP (idle) but DOWNSIZE is better \u2014 preserves availability while saving cost",
+                "terraform_mode": 2,
+                "app_group": "APP-A16",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a016",
+                        "instance_name": "api-gateway-prod-01",
+                        "instance_type": "m5.xlarge",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "STOP",
+                            "waste_type": "idle",
+                            "detection_window_days": 14,
+                            "p95_cpu": 3.8,
+                            "p99_cpu": 5.1,
+                            "max_cpu": 6.9,
+                            "p95_ram": 17.2,
+                            "cv": 0.07,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Idle: P95 CPU (3.8%) and peak CPU (6.9%) below thresholds over 14 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.192,
+                            "recommended_cost_per_hour": 0.0416,
+                            "waste_per_month": 109.94
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"api_gateway_prod_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.xlarge\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"api-gateway-prod-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "SUBOPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": true,
+                    "terraform_change": "Change instance_type from m5.xlarge to t3.medium \u2014 preserves availability while reducing cost by ~73%",
+                    "terraform_must_include": [
+                        "t3.medium"
+                    ],
+                    "key_facts": [
+                        "instance is RUNNING \u2014 STOP would cause production downtime",
+                        "P95 CPU 3.8% and P95 RAM 17.2% \u2014 massively oversized on both dimensions",
+                        "t3.medium (2 vCPU, 4 GB) handles the load comfortably: projected CPU ~7.6%",
+                        "DOWNSIZE saves $109.94/month while keeping the service available",
+                        "Agent 2 STOP is technically valid (it is idle) but suboptimal for a production running service"
+                    ]
+                }
+            },
+            "A17": {
+                "scenario_id": "A17",
+                "description": "Agent 2 recommends DOWNSIZE to c5.xlarge but metrics support going directly to c5.large \u2014 one-step too conservative",
+                "terraform_mode": 2,
+                "app_group": "APP-A17",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a017",
+                        "instance_name": "batch-worker-oversized-01",
+                        "instance_type": "c5.2xlarge",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "oversized",
+                            "detection_window_days": 30,
+                            "p95_cpu": 5.2,
+                            "p99_cpu": 6.8,
+                            "max_cpu": 9.3,
+                            "p95_ram": 15.1,
+                            "cv": 0.09,
+                            "recommended_type": "c5.xlarge",
+                            "projected_cpu_pct": 10.4,
+                            "projected_ram_pct": 30.2,
+                            "detection_reason": "Steady Oversized: P95 CPU (5.2%) over 30 days. Recommended c5.xlarge keeps projected CPU at 10.4%.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.34,
+                            "recommended_cost_per_hour": 0.17,
+                            "waste_per_month": 124.1
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"batch_worker_oversized_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.2xlarge\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 40\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"batch-worker-oversized-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "SUBOPTIMAL",
+                    "expected_terraform_action": "LLM_GENERATED",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": true,
+                    "terraform_change": "Change instance_type from c5.2xlarge to c5.large (not c5.xlarge) \u2014 projected CPU on c5.large is ~20.8%, well within safe headroom",
+                    "terraform_must_include": [
+                        "c5.large"
+                    ],
+                    "key_facts": [
+                        "P95 CPU 5.2% on c5.2xlarge (8 vCPU) \u2014 absolute usage \u2248 0.416 vCPU",
+                        "c5.xlarge (4 vCPU): projected 10.4% \u2014 Agent 2 stops here",
+                        "c5.large (2 vCPU): projected 20.8% \u2014 still well below 50% safety threshold",
+                        "P95 RAM 15.1%: c5.large (4 GB) at projected 30.2% \u2014 acceptable headroom",
+                        "c5.large saves an additional ~$62/month on top of Agent 2's recommendation",
+                        "Agent 2 too conservative \u2014 one-step downsize leaves significant waste on the table"
+                    ]
+                }
+            },
+            "A18": {
+                "scenario_id": "A18",
+                "description": "Agent 2 calls TERMINATE on an instance stopped only 4 days \u2014 premature, zombie threshold requires 30+ days",
+                "terraform_mode": 1,
+                "app_group": "APP-A18",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a018",
+                        "instance_name": "staging-db-replica-01",
+                        "instance_type": "t3.large",
+                        "role": "steady",
+                        "status": "stopped",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "staging",
+                        "agent2_decision": {
+                            "action": "TERMINATE",
+                            "waste_type": "zombie",
+                            "stopped_days": 4,
+                            "network_out_bytes_avg": 0,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "Steady Zombie: Instance stopped for 4 days with no network activity.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "detection_window_days": null,
+                            "p95_cpu": null,
+                            "p99_cpu": null,
+                            "max_cpu": null,
+                            "p95_ram": null,
+                            "cv": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0832,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 60.74
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"staging_db_replica_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 100\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"staging-db-replica-01\"\n    Environment = \"staging\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "INCORRECT",
+                    "expected_terraform_action": "NONE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "terraform_change": null,
+                    "terraform_must_include": null,
+                    "key_facts": [
+                        "instance stopped for only 4 days \u2014 zombie threshold is 30+ days",
+                        "Agent 2 misclassified a recently stopped instance as zombie",
+                        "TERMINATE on a 4-day stopped instance risks destroying active data or configs",
+                        "correct action: KEEP \u2014 monitor; revisit after 30 days of inactivity",
+                        "LLM must reject TERMINATE and explain the premature classification error"
+                    ]
+                }
+            },
+            "A19": {
+                "scenario_id": "A19",
+                "description": "Agent 2 recommends DOWNSIZE to t3.micro but P95 CPU is 76% \u2014 projected CPU would exceed 100%, making the recommendation impossible",
+                "terraform_mode": 1,
+                "app_group": "APP-A19",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a019",
+                        "instance_name": "task-runner-prod-01",
+                        "instance_type": "t3.small",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "DOWNSIZE",
+                            "waste_type": "oversized",
+                            "detection_window_days": 7,
+                            "p95_cpu": 76.4,
+                            "p99_cpu": 88.1,
+                            "max_cpu": 94.3,
+                            "p95_ram": 61.2,
+                            "cv": 1.3,
+                            "recommended_type": "t3.micro",
+                            "projected_cpu_pct": 152.8,
+                            "projected_ram_pct": 122.4,
+                            "detection_reason": "Steady Oversized: P95 CPU flagged over 7 days. Recommended t3.micro.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0208,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0.0
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"task_runner_prod_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.small\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"task-runner-prod-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "INCORRECT",
+                    "expected_terraform_action": "NONE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "terraform_change": null,
+                    "terraform_must_include": null,
+                    "key_facts": [
+                        "P95 CPU 76.4%, P99 88.1%, max 94.3% \u2014 instance is under heavy load, not oversized",
+                        "projected_cpu_pct = 152.8% on t3.micro \u2014 physically impossible, exceeds 100%",
+                        "projected_ram_pct = 122.4% \u2014 would cause immediate OOM",
+                        "Agent 2 contradicts itself: labels waste_type=oversized on a near-saturated instance",
+                        "CV=1.3 confirms bursty load \u2014 further unsafe to downsize",
+                        "correct action: KEEP \u2014 instance may actually need an UPSIZE"
+                    ]
+                }
+            },
+            "A20": {
+                "scenario_id": "A20",
+                "description": "Healthy instance \u2014 no waste detected, agent2 returns CLEAN, LLM should confirm no action needed",
+                "terraform_mode": 1,
+                "app_group": "APP-A20",
+                "flagged_resources": [
+                    {
+                        "instance_id": "i-a020",
+                        "instance_name": "api-server-healthy-01",
+                        "instance_type": "t3.medium",
+                        "role": "steady",
+                        "status": "running",
+                        "os": "linux",
+                        "region": "us-east-1",
+                        "environment": "production",
+                        "agent2_decision": {
+                            "action": "CLEAN",
+                            "waste_type": "none",
+                            "detection_window_days": 14,
+                            "p95_cpu": 58.3,
+                            "p99_cpu": 71.6,
+                            "max_cpu": 79.4,
+                            "p95_ram": 52.1,
+                            "cv": 0.18,
+                            "recommended_type": null,
+                            "projected_cpu_pct": null,
+                            "projected_ram_pct": null,
+                            "detection_reason": "No waste pattern detected. P95 CPU (58.3%) is within healthy range over 14 days.",
+                            "safety_status": "SAFE",
+                            "block_reason": null,
+                            "fallback_action": null,
+                            "pipeline_warning": false,
+                            "redundancy_node": false,
+                            "blast_radius": null,
+                            "stopped_days": null,
+                            "network_out_bytes_avg": null,
+                            "primary_instance_id": null,
+                            "primary_instance_name": null,
+                            "primary_p99_cpu": null,
+                            "primary_max_cpu": null
+                        },
+                        "cost": {
+                            "current_cost_per_hour": 0.0416,
+                            "recommended_cost_per_hour": null,
+                            "waste_per_month": 0.0
+                        },
+                        "relationships": [],
+                        "role_confidence": null,
+                        "role_derivation_source": null
+                    }
+                ],
+                "current_terraform": "resource \"aws_instance\" \"api_server_healthy_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"api-server-healthy-01\"\n    Environment = \"production\"\n  }\n}",
+                "llm_evaluation": {
+                    "expected_verdict": "CLEAN",
+                    "expected_terraform_action": "NO_CHANGE",
+                    "expected_pipeline_warning_acknowledged": false,
+                    "terraform_block_expected": false,
+                    "key_facts": [
+                        "P95 CPU 58.3% \u2014 within healthy utilization range",
+                        "P99 CPU 71.6%, max 79.4% \u2014 no oversizing signal",
+                        "no waste pattern detected over 14-day window",
+                        "LLM must confirm CLEAN and produce no Terraform changes"
+                    ],
+                    "terraform_change": null,
+                    "terraform_must_include": null
                 }
             }
         }

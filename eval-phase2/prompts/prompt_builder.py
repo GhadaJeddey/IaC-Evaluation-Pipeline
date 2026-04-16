@@ -4,8 +4,10 @@ Builds structured prompts for each mode from scenario data.
 One template per mode, shared across all models.
 Model-specific formatting is handled by the runners.
 
-- Mode 1: LLM validates Agent 2
-- Mode 2 : LLM performs crash RCA and suggests fix
+- Mode 1/2 (unified): LLM validates Agent 2 for any resource type (EC2 or non-EC2).
+                      OPTIMAL  → NL explanation only, no Terraform.
+                      SUBOPTIMAL / INCORRECT → NL explanation + LLM-generated Terraform.
+- Mode 3: Crash RCA from StatusCheckFailed logs.
 """
 
 import json
@@ -15,24 +17,44 @@ from typing import Any
 # OUTPUT SCHEMA — enforced in every prompt
 # ============================================================================
 
-MODE1_SCHEMA = """{
-  "verdict": "OPTIMAL | SUBOPTIMAL | INCORRECT | NEEDS_REVIEW",
-  "verdict_reason": "<one sentence explaining the verdict>",
-  "technical_explanation": "<detailed technical explanation of the finding and decision>",
-  "business_justification": "<business impact, cost savings, risk context>",
-  "risk_notes": "<any risks, caveats, or warnings the operator should know — null if none>",
+MODE1_2_SCHEMA = """{
+  "verdict": "OPTIMAL | SUBOPTIMAL | INCORRECT",
+  "decision_summary": {
+    "action": "<STOP | DOWNSIZE | TERMINATE | KEEP | SET_RETENTION | DESTROY | GLACIER_TRANSITION | S3_ARCHIVAL | NONE — the concrete action>",
+    "decided_by": "AGENT_VALIDATED | LLM_OVERRIDDEN",
+    "rationale": "<one sentence explaining why this action over alternatives>"
+  },
+  "technical_explanation": "<detailed technical explanation of the finding and what drives the decision>",
+  "cost_report": {
+    "waste_evidence": "<key metrics confirming waste — e.g. p95_cpu=2.1%, stopped_days=18, unattached_days=12, log_gb=12.8>",
+    "current_monthly_cost": <float>,
+    "projected_monthly_cost": <float or null — post-action monthly cost; null if terminated/destroyed>,
+    "monthly_savings": <float>,
+    "annual_savings": <float>
+  },
+  "risk_assessment": {
+    "risks": ["<concrete risk 1>", "<concrete risk 2>"],
+    "requires_manual_verification": <true | false>,
+    "verification_steps": "<specific steps the engineer must check before acting — null if no risks>"
+  },
   "pipeline_warning_acknowledged": <true | false>,
+  "data_loss_acknowledged": <true | false — true only for destructive actions with irreversible data loss>,
   "terraform_action": "NONE | SCRIPT_HANDLES | LLM_GENERATED",
   "terraform_block": "<full HCL block if terraform_action is LLM_GENERATED — null otherwise>"
 }"""
 
-MODE2_SCHEMA = """{
+MODE3_SCHEMA = """{
   "root_cause": "<precise technical root cause in one sentence>",
   "root_cause_category": "OOM_HEAP | OOM_KERNEL | DISK_FULL | CPU_CREDITS | CRASH_LOOP | NETWORK | OTHER",
   "severity": "P1_OUTAGE | P2_DEGRADED | P3_WARNING",
   "timeline_summary": "<chronological narrative of what the logs show happened>",
   "remediation": "<concrete actionable fix — specific, not generic>",
-  "aws_specific_notes": "<any AWS-specific context relevant to the fix — t3 credits, EBS limits, etc. — null if none>",
+  "aws_specific_notes": "<any AWS-specific context relevant to the fix — null if none>",
+  "risk_assessment": {
+    "risks": ["<risk 1 — e.g. dependent services may be affected>"],
+    "requires_manual_verification": <true | false>,
+    "verification_steps": "<what the engineer must verify before applying the fix — null if none>"
+  },
   "terraform_suggested": <true | false>,
   "terraform_block": "<HCL if an infra-level fix is appropriate — null otherwise>"
 }"""
@@ -54,7 +76,6 @@ def _format_relationships(relationships: list) -> str:
             f"source: {r['derivation_source']})"
         )
     return "\n".join(lines)
-
 
 def _format_agent2_decision(dec: dict) -> str:
     fields = {
@@ -98,59 +119,271 @@ def _format_cost(cost: dict) -> str:
 
 
 # ============================================================================
-# SYSTEM PROMPT — Mode 1
+# SYSTEM PROMPT — Mode 1/2 unified (EC2 + non-EC2)
 # ============================================================================
 
-MODE1_SYSTEM = """You are an expert AWS FinOps engineer and infrastructure architect.
+MODE1_2_SYSTEM = """You are an expert AWS FinOps engineer and infrastructure architect.
 
-You receive structured findings from an automated analysis agent (Agent 2) that has already analysed EC2 and S3 resource utilisation and made a cost-optimisation decision.
+You receive a finding from an automated analysis agent (Agent 2) about AWS resources.
+The resources may be an EC2 instance or a non-EC2 resources (CloudWatch log group, EIP, EBS volume, S3 bucket, etc.).
+Agent 2 has already analysed the resource and made a cost-optimisation decision.
 
 Your job is to:
 1. Review Agent 2's decision critically — check for contradictions, missed context, or unsafe assumptions.
-2. Decide whether the decision is OPTIMAL, SUBOPTIMAL or INCORRECT.
-3. Produce a structured JSON response following the schema exactly.
+2. Decide whether the decision is OPTIMAL, SUBOPTIMAL, or INCORRECT.
+3. If OPTIMAL: output the NL report only — no Terraform needed.
+   If SUBOPTIMAL or INCORRECT: output the NL report AND generate corrective Terraform.
 
 VERDICT DEFINITIONS:
 - OPTIMAL       — Agent 2's decision is correct and the best possible action given the data.
-                  Output: NL explanation only. terraform_action = SCRIPT_HANDLES.
-- SUBOPTIMAL    — Agent 2's decision is technically correct but a better solution exists.
-                  Output: NL explanation + your improved Terraform. terraform_action = LLM_GENERATED.
-- INCORRECT     — Agent 2's decision contains an error or contradiction that makes it inapplicable.
-                  Output: NL explanation of the error + corrective Terraform. terraform_action = LLM_GENERATED.
+                  This includes: CLEAN/no-action findings where the resource is already compliant,
+                  and NEEDS_REVIEW cases where you agree no safe automated action exists.
+                  Output: report only.
+                    terraform_action = SCRIPT_HANDLES  (standard EC2 ops the automation script handles)
+                    terraform_action = NONE            (resource already compliant — nothing to generate)
+- SUBOPTIMAL    — Agent 2's decision is technically valid but a better solution exists,
+                  OR Agent 2 issued NEEDS_REVIEW but you can identify a safe action it missed.
+                  Output: report + your improved Terraform. terraform_action = LLM_GENERATED.
+- INCORRECT     — Agent 2's decision contains a clear factual error or contradiction.
+                  Output: report explaining the error + corrective Terraform (or NONE if the
+                  correct action is to do nothing). terraform_action = LLM_GENERATED or NONE.
 
-TERRAFORM RULES (when terraform_action = LLM_GENERATED):
-- Output a complete, valid HCL resource block.
-- Keep all existing tags and add: FinOpsAction = "<action>", FinOpsReviewed = "true".
-- Never remove encrypted = true if it exists.
-- For STOP: use aws_ec2_instance_state resource with state = "stopped".
-- For TERMINATE: remove the aws_instance resource block entirely and add a comment.
-- For DOWNSIZE: change instance_type only — leave all other attributes unchanged.
-- For new resources (S3 archival, log subscription etc): generate complete, minimal, secure HCL.
+DECISION SUMMARY RULES:
+- decided_by = AGENT_VALIDATED when verdict is OPTIMAL.
+- decided_by = LLM_OVERRIDDEN when verdict is SUBOPTIMAL or INCORRECT.
+- action must name the concrete operation:
+    EC2:     STOP | DOWNSIZE | TERMINATE | KEEP
+    Non-EC2: SET_RETENTION | DESTROY | GLACIER_TRANSITION | S3_ARCHIVAL |
+             SET_LIFECYCLE | REMOVE_PROVISIONED_CONCURRENCY | NONE
+- rationale must explain why this action and not an alternative.
 
-PIPELINE WARNING RULE:
-If pipeline_warning = true, you MUST acknowledge it in risk_notes and set pipeline_warning_acknowledged = true.
-A pipeline warning means the instance has a low-confidence relationship to another resource —
-you may still proceed with the action but must flag the dependency explicitly.
+COST REPORT RULES:
+- waste_evidence: cite the specific metrics from the finding:
+    EC2:           p95_cpu, stopped_days, waste_per_month
+    Log groups:    log_gb_per_month, retention_days (or null), cost_per_month
+    Ghost EIP/EBS: unattached_days, cost_per_month
+    S3:            objects_older_than_90d_pct, estimated_savings_per_month
+    NAT Gateway:   bytes_processed_avg_per_day, idle_days, cost_per_month
+    ALB:           healthy_host_count, request_count_avg_per_day, idle_days, cost_per_month
+    ECR:           untagged_images, total_size_gb, cost_per_month
+    Lambda:        provisioned_concurrency, invocations_last_30d, cost_per_month
+- current_monthly_cost: for EC2 use cost.current_cost_per_hour × 730; for non-EC2 use finding cost.
+- projected_monthly_cost: null if destroyed; 0.0 for resources with no ongoing cost after action.
+- monthly_savings and annual_savings: derive from the finding's cost data.
+
+RISK ASSESSMENT RULES:
+- List every concrete operational risk (data loss, pipeline dependency, traffic disruption).
+- If pipeline_warning = true: add it to risks, set requires_manual_verification = true,
+  and set pipeline_warning_acknowledged = true.
+- For any destructive action (EBS delete, EIP release, NAT destroy, ALB destroy, ECR lifecycle):
+  set requires_manual_verification = true. Set data_loss_acknowledged = true only when data is
+  permanently deleted (EBS volumes, ECR images — not NAT/ALB/EIP which carry no stored data).
+- verification_steps must be specific and actionable — not generic "check dependencies".
+- If no risks exist: risks = [], requires_manual_verification = false, verification_steps = null.
+
+TERRAFORM RULES — only when terraform_action = LLM_GENERATED:
+  EC2 operations:
+  - For STOP:      use aws_ec2_instance_state resource with state = "stopped".
+  - For TERMINATE: remove the aws_instance block entirely and add a comment.
+  - For DOWNSIZE:  change instance_type only — leave all other attributes unchanged.
+
+  Non-EC2 operations:
+  - For SET_RETENTION (CloudWatch):    add retention_in_days to the existing aws_cloudwatch_log_group.
+  - For S3_ARCHIVAL (CloudWatch):      output aws_cloudwatch_log_subscription_filter + aws_s3_bucket +
+                                       aws_iam_role + aws_iam_role_policy. Never hardcode account IDs —
+                                       use data "aws_caller_identity" current {}.
+  - For DESTROY (EIP / EBS):           output the resource block with lifecycle { prevent_destroy = false }.
+  - For GLACIER_TRANSITION (S3):       output aws_s3_bucket_lifecycle_configuration as a separate resource.
+  - For DESTROY (NAT Gateway):         output the aws_nat_gateway block with lifecycle { prevent_destroy = false }.
+                                       Also include the associated aws_eip block if present.
+  - For DESTROY (ALB / NLB):           output aws_lb with lifecycle { prevent_destroy = false }.
+                                       Include dependent aws_lb_listener and aws_lb_target_group blocks.
+  - For SET_LIFECYCLE (ECR):           output aws_ecr_lifecycle_policy as a separate resource.
+                                       Rules must expire untagged images after 1 day and cap tagged
+                                       image count to a reasonable limit (e.g. 30).
+  - For REMOVE_PROVISIONED_CONCURRENCY (Lambda): remove the aws_lambda_provisioned_concurrency_config
+                                       resource block entirely and add a comment explaining the removal.
+
+  All generated Terraform:
+  - Keep all existing tags and add: FinOpsAction = "<action>", FinOpsReviewed = "true".
+  - Never remove encrypted = true if it exists.
+  - Output complete, valid HCL — not snippets.
 
 OUTPUT FORMAT:
 Respond with ONLY valid JSON matching this schema — no prose before or after:
-""" + MODE1_SCHEMA
+""" + MODE1_2_SCHEMA
 
 
 # ============================================================================
-# USER PROMPT BUILDER — Mode 1 (single instance)
+# MULTI-INSTANCE SCHEMA + SYSTEM VARIANT (Tier B)
 # ============================================================================
 
-def build_mode1_prompt(scenario: dict) -> tuple[str, str]:
-    """
-    Returns (system_prompt, user_prompt) for a single-instance Mode 1 scenario.
-    """
-    resource = scenario["flagged_resources"][0]
-    dec      = resource["agent2_decision"]
-    cost     = resource["cost"]
-    rels     = resource.get("relationships", [])
+MULTI_INSTANCE_ADDENDUM = """
+### Multi-instance reasoning rules
+- Evaluate each instance independently, then check cross-instance safety.
+- If Agent 2 marked an instance CLEAN (no action) and you agree: verdict = OPTIMAL, action = NONE, terraform_action = NONE.
+- If you generate Terraform for an instance Agent 2 marked CLEAN, that is an error.
+- For dependent_primary + dependent_secondary pairs: dependents must be actioned before their primary.
+- State your intended execution order in each instance's decision_summary.rationale.
+- Populate group_cost_report with the sum of savings across all actioned instances.
+- Output a single JSON object with keys "instances", "group_summary", "group_cost_report", and "execution_order".
+"""
 
-    user = f"""## AGENT 2 FINDING — {scenario['scenario_id']}
+MULTI_INSTANCE_SCHEMA = """{
+  "instances": {
+    "<instance_id>": {
+      "verdict": "OPTIMAL | SUBOPTIMAL | INCORRECT",
+      "decision_summary": {
+        "action": "<STOP | DOWNSIZE | TERMINATE | KEEP | NONE>",
+        "decided_by": "AGENT_VALIDATED | LLM_OVERRIDDEN",
+        "rationale": "<one sentence — include position in execution order if relevant>"
+      },
+      "technical_explanation": "...",
+      "cost_report": {
+        "waste_evidence": "...",
+        "current_monthly_cost": <float>,
+        "projected_monthly_cost": <float or null>,
+        "monthly_savings": <float>,
+        "annual_savings": <float>
+      },
+      "risk_assessment": {
+        "risks": ["..."],
+        "requires_manual_verification": <true | false>,
+        "verification_steps": "... | null"
+      },
+      "pipeline_warning_acknowledged": true | false,
+      "terraform_action": "NONE | SCRIPT_HANDLES | LLM_GENERATED",
+      "terraform_block": "... | null"
+    }
+  },
+  "group_summary": "<overall narrative: all instances covered, execution order rationale, total savings>",
+  "group_cost_report": {
+    "total_monthly_savings": <float>,
+    "total_annual_savings": <float>,
+    "instances_actioned": <int>
+  },
+  "execution_order": ["<instance_id_first>", "<instance_id_second>", "..."]
+}"""
+
+MODE1_2_SYSTEM_MULTI = MODE1_2_SYSTEM.replace(
+    "Respond with ONLY valid JSON matching this schema — no prose before or after:\n" + MODE1_2_SCHEMA,
+    "Respond with ONLY valid JSON matching this schema — no prose before or after:\n" + MULTI_INSTANCE_SCHEMA
+) + MULTI_INSTANCE_ADDENDUM
+
+
+# ============================================================================
+# MULTI-FINDING SCHEMA + SYSTEM VARIANT (Tier C multi-finding)
+# ============================================================================
+
+MULTI_FINDING_C_SCHEMA = """{
+  "findings": {
+    "<resource_id>": {
+      "verdict": "OPTIMAL | SUBOPTIMAL | INCORRECT",
+      "decision_summary": {
+        "action": "<SET_RETENTION | DESTROY | GLACIER_TRANSITION | S3_ARCHIVAL | SET_LIFECYCLE | REMOVE_PROVISIONED_CONCURRENCY | NONE — the concrete action>",
+        "decided_by": "AGENT_VALIDATED | LLM_OVERRIDDEN",
+        "rationale": "<one sentence explaining why this action over alternatives>"
+      },
+      "technical_explanation": "<detailed technical explanation of the finding and what drives the decision>",
+      "cost_report": {
+        "waste_evidence": "<key metrics confirming waste>",
+        "current_monthly_cost": <float>,
+        "projected_monthly_cost": <float or null>,
+        "monthly_savings": <float>,
+        "annual_savings": <float>
+      },
+      "risk_assessment": {
+        "risks": ["..."],
+        "requires_manual_verification": <true | false>,
+        "verification_steps": "... | null"
+      },
+      "data_loss_acknowledged": <true | false>,
+      "terraform_action": "NONE | LLM_GENERATED",
+      "terraform_block": "<full HCL block if terraform_action is LLM_GENERATED — null otherwise>"
+    }
+  },
+  "group_summary": "<narrative covering all findings, total savings, key risks>",
+  "group_cost_report": {
+    "total_monthly_savings": <float>,
+    "total_annual_savings": <float>,
+    "findings_actioned": <int>
+  }
+}"""
+
+MULTI_FINDING_C_ADDENDUM = """
+### Multi-finding reasoning rules
+- Evaluate each finding independently — do not conflate verdicts or Terraform between resources.
+- If a finding is already compliant (OPTIMAL, no action needed): terraform_action = NONE, terraform_block = null.
+- If a finding needs a fix (SUBOPTIMAL or INCORRECT): terraform_action = LLM_GENERATED, include the complete HCL block.
+- Do NOT mix Terraform blocks between findings — each resource_id entry is self-contained.
+- group_cost_report.findings_actioned = count of findings where terraform_action = LLM_GENERATED.
+- Non-EC2 findings have no dependency order — evaluate them independently.
+- Output a single JSON object with keys "findings", "group_summary", and "group_cost_report".
+"""
+
+MODE1_2_SYSTEM_MULTI_C = MODE1_2_SYSTEM.replace(
+    "Respond with ONLY valid JSON matching this schema — no prose before or after:\n" + MODE1_2_SCHEMA,
+    "Respond with ONLY valid JSON matching this schema — no prose before or after:\n" + MULTI_FINDING_C_SCHEMA
+) + MULTI_FINDING_C_ADDENDUM
+
+
+# ============================================================================
+# USER PROMPT BUILDER — Mode 1/2 unified (Tier A, B, C)
+# ============================================================================
+
+def build_mode1_2_prompt(scenario: dict) -> tuple[str, str]:
+    """
+    Single builder for all Mode 1/2 scenarios (Tier A, B, C).
+
+    Routing by scenario shape:
+      - flagged_resources with >1 entry  → multi-instance user prompt (Tier B)
+      - flagged_resources with 1 entry   → single-instance user prompt (Tier A)
+      - no flagged_resources (finding)   → non-EC2 resource user prompt (Tier C)
+    """
+    resources = scenario.get("flagged_resources", [])
+
+    # ── Tier B: multiple EC2 instances ──────────────────────────────────────
+    if len(resources) > 1:
+        blocks = []
+        for r in resources:
+            dec  = r["agent2_decision"]
+            cost = r["cost"]
+            rels = r.get("relationships", [])
+            blocks.append(f"""
+#### Instance: {r['instance_id']} ({r['instance_name']})
+- instance_type: {r['instance_type']}  role: {r['role']}  status: {r['status']}
+- environment:   {r['environment']}    region: {r['region']}
+
+Agent 2 decision:
+{_format_agent2_decision(dec)}
+
+Cost:
+{_format_cost(cost)}
+
+Relationships:
+{_format_relationships(rels)}
+""")
+        user = f"""## AGENT 2 FINDING — {scenario['scenario_id']} ({scenario.get('app_group_name', scenario.get('app_group', ''))})
+
+{chr(10).join(blocks)}
+
+### Current Terraform (entire group)
+```hcl
+{scenario['current_terraform']}
+```
+
+### Your task
+Evaluate all instances above. Output your verdict per instance plus execution_order and group_summary.
+"""
+        return MODE1_2_SYSTEM_MULTI, user
+
+    # ── Tier A: single EC2 instance ─────────────────────────────────────────
+    if len(resources) == 1:
+        resource = resources[0]
+        dec  = resource["agent2_decision"]
+        cost = resource["cost"]
+        rels = resource.get("relationships", [])
+        user = f"""## AGENT 2 FINDING — {scenario['scenario_id']}
 
 ### Instance metadata
 - instance_id:    {resource['instance_id']}
@@ -180,141 +413,49 @@ def build_mode1_prompt(scenario: dict) -> tuple[str, str]:
 Review Agent 2's decision above. Output your verdict and explanation as JSON.
 Remember: if terraform_action is LLM_GENERATED, include a complete valid terraform_block.
 """
-    return MODE1_SYSTEM, user
+        return MODE1_2_SYSTEM, user
 
+    # ── Tier C multi-finding: multiple non-EC2 resources ───────────────────
+    findings = scenario.get("findings", [])
+    if len(findings) > 1:
+        blocks = []
+        for f in findings:
+            rid = f["resource_id"]
+            blocks.append(f"""
+#### Resource: {rid}
+**Finding:**
+{json.dumps(f['finding'], indent=2)}
 
-# ============================================================================
-# USER PROMPT BUILDER — Mode 1 (multi-instance / Tier B)
-# ============================================================================
+**Agent 2 decision:**
+{json.dumps(f['agent2_decision'], indent=2)}
 
-MULTI_INSTANCE_ADDENDUM = """
-### Multi-instance reasoning rules
-- Evaluate each instance independently, then check cross-instance safety.
-- CLEAN instances must produce no Terraform and no action.
-- If you generate Terraform for a CLEAN instance, that is an error.
-- For dependent_primary + dependent_secondary pairs: primary must be actioned before secondary.
-- State your intended execution order explicitly in each instance's verdict_reason.
-- Output a single JSON object with key "instances" containing one entry per instance_id.
-"""
-
-MULTI_INSTANCE_SCHEMA = """{
-  "instances": {
-    "<instance_id>": {
-      "verdict": "OPTIMAL | SUBOPTIMAL | INCORRECT | CLEAN",
-      "verdict_reason": "...",
-      "technical_explanation": "...",
-      "business_justification": "...",
-      "risk_notes": "...",
-      "pipeline_warning_acknowledged": true | false,
-      "terraform_action": "NONE | SCRIPT_HANDLES | LLM_GENERATED",
-      "terraform_block": "... | null"
-    }
-  },
-  "group_summary": "<overall summary covering all instances, total savings, execution order>",
-  "execution_order": ["<instance_id_first>", "<instance_id_second>", "..."]
-}"""
-
-MODE1_SYSTEM_MULTI = MODE1_SYSTEM.replace(
-    "Respond with ONLY valid JSON matching this schema — no prose before or after:\n" + MODE1_SCHEMA,
-    "Respond with ONLY valid JSON matching this schema — no prose before or after:\n" + MULTI_INSTANCE_SCHEMA
-) + MULTI_INSTANCE_ADDENDUM
-
-
-def build_mode1_multi_prompt(scenario: dict) -> tuple[str, str]:
-    """
-    Returns (system_prompt, user_prompt) for a multi-instance Tier B scenario.
-    """
-    blocks = []
-    for r in scenario["flagged_resources"]:
-        dec  = r["agent2_decision"]
-        cost = r["cost"]
-        rels = r.get("relationships", [])
-        blocks.append(f"""
-#### Instance: {r['instance_id']} ({r['instance_name']})
-- instance_type: {r['instance_type']}  role: {r['role']}  status: {r['status']}
-- environment:   {r['environment']}    region: {r['region']}
-
-Agent 2 decision:
-{_format_agent2_decision(dec)}
-
-Cost:
-{_format_cost(cost)}
-
-Relationships:
-{_format_relationships(rels)}
+**Current Terraform:**
+```hcl
+{f['current_terraform']}
+```
 """)
-
-    user = f"""## AGENT 2 FINDING — {scenario['scenario_id']} ({scenario.get('app_group_name', scenario['app_group'])})
+        user = f"""## AGENT 2 FINDING — {scenario['scenario_id']} (multi-finding)
 
 {chr(10).join(blocks)}
 
-### Current Terraform (entire group)
-```hcl
-{scenario['current_terraform']}
-```
-
 ### Your task
-Evaluate all instances above. Output your verdict per instance plus execution_order and group_summary.
+Evaluate each finding independently. Output your verdict per resource_id in the findings dict,
+plus group_summary and group_cost_report.
+If a resource is already compliant (OPTIMAL): terraform_action = NONE.
+If a resource needs a fix (SUBOPTIMAL/INCORRECT): terraform_action = LLM_GENERATED with the complete terraform_block.
 """
-    return MODE1_SYSTEM_MULTI, user
+        return MODE1_2_SYSTEM_MULTI_C, user
 
-
-# ============================================================================
-# USER PROMPT BUILDER — Mode 2 (LLM-generated Terraform, Tier C)
-# ============================================================================
-
-MODE2_SYSTEM = """You are an expert AWS FinOps engineer and infrastructure architect.
-
-You receive a finding from an automated analysis agent about a non-EC2 AWS resource
-(CloudWatch log group, EBS volume, EIP, S3 bucket, etc.).
-
-Agent 2 has identified a cost problem but the fix requires generating new or substantially
-modified Terraform that the script layer cannot handle automatically.
-
-Your job is to:
-1. Understand the finding and verify it makes sense.
-2. Generate complete, production-safe Terraform that implements the recommended fix.
-3. Provide a clear NL explanation of what you changed and why.
-
-TERRAFORM RULES:
-- Output complete, valid HCL — not snippets.
-- For S3 lifecycle policies: use aws_s3_bucket_lifecycle_configuration (separate resource, not inline).
-- For CloudWatch log subscription to S3: include aws_cloudwatch_log_subscription_filter +
-  aws_s3_bucket + aws_iam_role + aws_iam_role_policy (minimum required resources).
-- For retention policies: use aws_cloudwatch_log_group with retention_in_days set.
-- For EBS/EIP destroy: output the resource block with a lifecycle { prevent_destroy = false } comment.
-- Always add tag: FinOpsAction = "<action_type>".
-- Never hardcode account IDs — use data "aws_caller_identity" current {}.
-
-DATA LOSS WARNING:
-For any destructive action (EBS delete, EIP release), you MUST include an explicit
-data_loss_acknowledged field set to true in your JSON response, and explain the
-irreversibility in business_justification.
-
-OUTPUT FORMAT:
-Respond with ONLY valid JSON — no prose before or after:
-{
-  "verdict": "OPTIMAL | SUBOPTIMAL | INCORRECT",
-  "verdict_reason": "<one sentence>",
-  "technical_explanation": "<what the finding means technically>",
-  "business_justification": "<cost impact, savings, risk — include dollar amounts from the finding>",
-  "risk_notes": "<warnings, irreversibility notes — null if none>",
-  "data_loss_acknowledged": <true | false>,
-  "terraform_action": "LLM_GENERATED",
-  "terraform_block": "<complete HCL>"
-}"""
-
-
-def build_mode2_prompt(scenario: dict) -> tuple[str, str]:
-    """
-    Returns (system_prompt, user_prompt) for a Mode 2 Tier C scenario.
-    """
+    # ── Tier C: non-EC2 resource (no flagged_resources) ─────────────────────
     finding = scenario.get("finding", {})
-
+    dec     = scenario.get("agent2_decision", {})
     user = f"""## AGENT 2 FINDING — {scenario['scenario_id']}
 
-### Finding
+### Resource finding
 {json.dumps(finding, indent=2)}
+
+### Agent 2 decision
+{json.dumps(dec, indent=2)}
 
 ### Current Terraform
 ```hcl
@@ -322,11 +463,11 @@ def build_mode2_prompt(scenario: dict) -> tuple[str, str]:
 ```
 
 ### Your task
-Generate the corrective Terraform and explain the change.
-The current Terraform above shows the existing state — your terraform_block should
-contain the full corrected or supplemented HCL.
+Review Agent 2's decision above. Decide OPTIMAL / SUBOPTIMAL / INCORRECT.
+If OPTIMAL: output the report with terraform_action = NONE — do not generate Terraform.
+If SUBOPTIMAL or INCORRECT: output the report and generate the corrective terraform_block.
 """
-    return MODE2_SYSTEM, user
+    return MODE1_2_SYSTEM, user
 
 
 # ============================================================================
@@ -376,7 +517,7 @@ AWS-SPECIFIC KNOWLEDGE TO APPLY:
 
 OUTPUT FORMAT:
 Respond with ONLY valid JSON — no prose before or after:
-""" + MODE2_SCHEMA
+""" + MODE3_SCHEMA
 
 
 def build_mode3_prompt(scenario: dict) -> tuple[str, str]:
@@ -428,21 +569,16 @@ def build_prompt(scenario: dict) -> tuple[str, str]:
 
     Routing rules:
     - Tier D → Mode 3 crash RCA prompt
-    - Tier C → Mode 2 always (script layer cannot handle non-EC2 resources)
-    - Tier A/B → Mode 1; multi-instance prompt when len(flagged_resources) > 1
+    - Tier C → unified Mode 1/2 prompt (non-EC2 user prompt, same verdict logic)
+    - Tier A/B → unified Mode 1/2 prompt; multi-instance variant when len(flagged_resources) > 1
     """
     tier = scenario.get("scenario_id", "")[0].upper()
 
     if tier == "D":
         return build_mode3_prompt(scenario)
 
-    if tier == "C":
-        return build_mode2_prompt(scenario)
-
-    # Tier A / B — route on actual instance count, not tier label
-    if len(scenario.get("flagged_resources", [])) > 1:
-        return build_mode1_multi_prompt(scenario)
-    return build_mode1_prompt(scenario)
+    # Tier A / B / C — all handled by the unified builder
+    return build_mode1_2_prompt(scenario)
 
 
 # ============================================================================

@@ -34,16 +34,15 @@ def validate(scenario: dict, llm_response: dict) -> ValidatorResult:
     if len(resources) <= 1:
         return ValidatorResult("execution_order", True, 1.0, "Single resource — order N/A")
 
-    # Extract action sequence from LLM response if it provided one
-    action_sequence = llm_response.get("action_sequence", [])
-    if not action_sequence:
-        # LLM didn't specify order — partial credit
+    # LLM emits "execution_order": ["instance_id_1", "instance_id_2", ...]
+    actual_ids = llm_response.get("execution_order", [])
+    if not actual_ids:
         return ValidatorResult(
             "execution_order", False, 0.5,
-            "LLM did not specify execution order for bundle scenario"
+            "LLM did not populate execution_order for multi-instance scenario"
         )
 
-    # Build expected order: sort by role priority
+    # Build expected order: sort actionable resources by role priority
     active_resources = [
         r for r in resources
         if r["agent2_decision"]["action"] not in ("CLEAN", "NEEDS_REVIEW", "SKIP")
@@ -53,7 +52,6 @@ def validate(scenario: dict, llm_response: dict) -> ValidatorResult:
         key=lambda r: _ROLE_ORDER.get(r["role"], 3)
     )
     expected_ids = [r["instance_id"] for r in expected_order]
-    actual_ids   = [a.get("instance_id") for a in action_sequence]
 
     # Check that any dependent roles appear before primaries
     violations = []
