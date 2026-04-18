@@ -1,0 +1,156 @@
+{
+  "scenario_id": "B3",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b301": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b302": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b303": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_block_must_be_null": true,
+      "expected_pipeline_warning_acknowledged": null,
+      "terraform_block_expected": null,
+      "terraform_change": null
+    }
+  },
+  "model": "qwen3-coder-32b",
+  "llm_response": {
+    "instances": {
+      "i-b301": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Primary instance shows 2.3% p95 CPU utilization with 9.2% peak. Downgrading from r5.xlarge to r5.large aligns with usage patterns while maintaining safety margins."
+        },
+        "technical_explanation": "CPU utilization metrics (p95=2.3%, max=9.2%) indicate significant underutilization. Projected metrics (4.6% CPU, 49.2% RAM) confirm sufficient capacity for production workloads.",
+        "cost_report": {
+          "waste_evidence": "p95_cpu=2.3%, max_cpu=9.2%, waste_per_month=$90.72",
+          "current_monthly_cost": 181.44,
+          "projected_monthly_cost": 90.72,
+          "monthly_savings": 90.72,
+          "annual_savings": 1088.64
+        },
+        "risk_assessment": {
+          "risks": [
+            "Potential performance degradation if workload patterns change",
+            "Application compatibility with smaller instance type"
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "1. Validate application performance with r5.large\n2. Confirm database replication stability\n3. Monitor CPU/RAM metrics post-change"
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      },
+      "i-b302": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Secondary instance can safely downsize to r5.medium after primary instance optimization completes."
+        },
+        "technical_explanation": "Primary instance's 6.1% p99 CPU utilization confirms secondary can safely reduce capacity while maintaining replication performance.",
+        "cost_report": {
+          "waste_evidence": "p99_cpu=6.1%, waste_per_month=$45.36",
+          "current_monthly_cost": 90.72,
+          "projected_monthly_cost": 45.36,
+          "monthly_savings": 45.36,
+          "annual_savings": 544.32
+        },
+        "risk_assessment": {
+          "risks": [
+            "Replication latency increase with smaller instance",
+            "Insufficient capacity for failover scenarios"
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "1. Test replication performance with r5.medium\n2. Validate failover capabilities\n3. Monitor I/O metrics post-change"
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      },
+      "i-b303": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Analytics replica shows 58.3% p95 CPU utilization with no waste pattern detected."
+        },
+        "technical_explanation": "High CPU utilization (58.3% p95) and 62.1% RAM usage indicate optimal resource allocation for analytics workloads.",
+        "cost_report": {
+          "waste_evidence": "p95_cpu=58.3%, waste_per_month=$0.00",
+          "current_monthly_cost": 90.72,
+          "projected_monthly_cost": 90.72,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      }
+    },
+    "group_summary": "Optimized primary and secondary database instances while maintaining production stability. Analytics replica remains at optimal size. Execution order prioritizes primary before secondary to maintain replication integrity.",
+    "group_cost_report": {
+      "total_monthly_savings": 136.08,
+      "total_annual_savings": 1632.96,
+      "instances_actioned": 2
+    },
+    "execution_order": [
+      "i-b301",
+      "i-b302",
+      "i-b303"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": false,
+      "score": 0.0,
+      "details": "Order violations: ['i-b301(dependent_primary) before i-b302(dependent_secondary)']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.8333333333333334,
+      "details": "The report is well-structured with specific metrics, consistent numbers, and actionable verification steps, though i-b302's technical_explanation weakly references primary CPU stats rather than its own utilization data to justify downsizing.",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 4,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 4,
+        "risk_communication": 4,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 3/3"
+    }
+  },
+  "raw_output": "<think>\nOkay, let's start by looking at each instance one by one. \n\nFirst, the primary instance i-b301 (db-primary-prod) is an r5.xlarge. Agent 2 suggested downgrading to r5.large. The CPU usage is low (p95 2.3%, max 9.2%), so downgrading makes sense. The cost savings are about $90.72/month. The Terraform needs to change the instance_type to r5.large. I should check if there are any dependencies, but since there are none, this should be safe. The risk here is minimal since it's a primary instance, but since it's in production, manual verification is needed. So the action is DOWNSIZE, and the Terraform block should reflect that.\n\nNext, the secondary instance i-b302 (db-secondary-prod) is an r5.large. Agent 2 recommends downgrading to r5.medium. The reasoning is based on the primary's P99 CPU being 6.1%, which allows this. The savings are $45.36/month. Again, no dependencies listed. The Terraform should change the instance_type to r5.medium. Since it's a dependent secondary, it should be actioned after the primary. So execution order would be primary first, then secondary.\n\nThe third instance, i-b303 (db-analytics-replica), is marked as CLEAN by Agent 2. The CPU usage is high (p95 58.3%), so no waste detected. No action needed here. The Terraform remains unchanged. \n\nNow, checking for any contradictions or missed context. The primary and secondary are part of a dependent pair, so the secondary should be downgraded after the primary. The Terraform for both needs to have the instance_type updated. Also, the root_block_device is encrypted as false, but the rules say to never remove encrypted if it exists. Wait, in the current Terraform, encrypted is false. The user instructions say to never remove encrypted = true if it exists. But in this case, it's set to false. So when generating Terraform, we should leave encrypted as false unless the user specifies otherwise. Wait, the rule says: \"Never remove encrypted = true if it exists.\" Since the current Terraform has encrypted = false, we don't need to add it. So the Terraform blocks for the downgraded instances should only change the instance_type and add the FinOps tags.\n\nAlso, the execution order should be primary first, then secondary. The third instance is clean, so no action. \n\nFor the cost report, the monthly savings are $90.72 + $45.36 = $136.08, annual is that times 12. \n\nRisks for the primary and secondary: since they are in production, stopping or terminating could disrupt services. But since we're just downgrading, the risk is lower. However, manual verification is still needed. The verification steps would involve checking if the application can handle the smaller instance sizes. \n\nSo the verdict for the primary and secondary is OPTIMAL since Agent 2's decision is correct. The third instance is already clean. The Terraform for the primary and secondary needs to be generated with the new instance types and the FinOps tags added.\n</think>\n\n{\n  \"instances\": {\n    \"i-b301\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Primary instance shows 2.3% p95 CPU utilization with 9.2% peak. Downgrading from r5.xlarge to r5.large aligns with usage patterns while maintaining safety margins.\"\n      },\n      \"technical_explanation\": \"CPU utilization metrics (p95=2.3%, max=9.2%) indicate significant underutilization. Projected metrics (4.6% CPU, 49.2% RAM) confirm sufficient capacity for production workloads.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p95_cpu=2.3%, max_cpu=9.2%, waste_per_month=$90.72\",\n        \"current_monthly_cost\": 181.44,\n        \"projected_monthly_cost\": 90.72,\n        \"monthly_savings\": 90.72,\n        \"annual_savings\": 1088.64\n      },\n      \"risk_assessment\": {\n        \"risks\": [\n          \"Potential performance degradation if workload patterns change\",\n          \"Application compatibility with smaller instance type\"\n        ],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"1. Validate application performance with r5.large\\n2. Confirm database replication stability\\n3. Monitor CPU/RAM metrics post-change\"\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    },\n    \"i-b302\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Secondary instance can safely downsize to r5.medium after primary instance optimization completes.\"\n      },\n      \"technical_explanation\": \"Primary instance's 6.1% p99 CPU utilization confirms secondary can safely reduce capacity while maintaining replication performance.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p99_cpu=6.1%, waste_per_month=$45.36\",\n        \"current_monthly_cost\": 90.72,\n        \"projected_monthly_cost\": 45.36,\n        \"monthly_savings\": 45.36,\n        \"annual_savings\": 544.32\n      },\n      \"risk_assessment\": {\n        \"risks\": [\n          \"Replication latency increase with smaller instance\",\n          \"Insufficient capacity for failover scenarios\"\n        ],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"1. Test replication performance with r5.medium\\n2. Validate failover capabilities\\n3. Monitor I/O metrics post-change\"\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    },\n    \"i-b303\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Analytics replica shows 58.3% p95 CPU utilization with no waste pattern detected.\"\n      },\n      \"technical_explanation\": \"High CPU utilization (58.3% p95) and 62.1% RAM usage indicate optimal resource allocation for analytics workloads.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p95_cpu=58.3%, waste_per_month=$0.00\",\n        \"current_monthly_cost\": 90.72,\n        \"projected_monthly_cost\": 90.72,\n        \"monthly_savings\": 0.00,\n        \"annual_savings\": 0.00\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    }\n  },\n  \"group_summary\": \"Optimized primary and secondary database instances while maintaining production stability. Analytics replica remains at optimal size. Execution order prioritizes primary before secondary to maintain replication integrity.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 136.08,\n    \"total_annual_savings\": 1632.96,\n    \"instances_actioned\": 2\n  },\n  \"execution_order\": [\"i-b301\", \"i-b302\", \"i-b303\"]\n}",
+  "latency_ms": 4263,
+  "attempts": 1
+}

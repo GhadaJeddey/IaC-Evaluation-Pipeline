@@ -1,0 +1,57 @@
+{
+  "scenario_id": "A5",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DOWNSIZE",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance's p95 CPU utilization of 2.1% and peak CPU utilization of 8.4% are below the tightened thresholds, making downsizing to an r5.large instance a safe and cost-effective decision."
+    },
+    "technical_explanation": "The instance's low CPU utilization and the safety status of 'SAFE' from Agent 2 indicate that downsizing the instance from r5.xlarge to r5.large will not negatively impact performance. The projected CPU utilization of 4.2% and RAM utilization of 44.6% after downsizing are within acceptable limits, supporting the decision to downsize.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=2.1%, max_cpu=8.4%",
+      "current_monthly_cost": 181.44,
+      "projected_monthly_cost": 90.72,
+      "monthly_savings": 90.72,
+      "annual_savings": 1088.64
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7,
+      "details": "The report correctly covers the utilization metrics and downsize action but omits explicit mention of the dependent_primary role and the tightened-threshold constraint that drove the DOWNSIZE cap, leaving the explanation partially generic.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 3,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 4,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "```json\n{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DOWNSIZE\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance's p95 CPU utilization of 2.1% and peak CPU utilization of 8.4% are below the tightened thresholds, making downsizing to an r5.large instance a safe and cost-effective decision.\"\n  },\n  \"technical_explanation\": \"The instance's low CPU utilization and the safety status of 'SAFE' from Agent 2 indicate that downsizing the instance from r5.xlarge to r5.large will not negatively impact performance. The projected CPU utilization of 4.2% and RAM utilization of 44.6% after downsizing are within acceptable limits, supporting the decision to downsize.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=2.1%, max_cpu=8.4%\",\n    \"current_monthly_cost\": 181.44,\n    \"projected_monthly_cost\": 90.72,\n    \"monthly_savings\": 90.72,\n    \"annual_savings\": 1088.64\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}\n```",
+  "latency_ms": 1443,
+  "attempts": 1
+}

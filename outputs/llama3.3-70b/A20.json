@@ -1,0 +1,57 @@
+{
+  "scenario_id": "A20",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance's p95 CPU utilization is within a healthy range, indicating no waste pattern and no need for action."
+    },
+    "technical_explanation": "Agent 2's decision is based on the instance's CPU utilization metrics, which show a p95 CPU of 58.3% over 14 days, well within the healthy range. This suggests that the instance is properly sized for its workload and there is no indication of waste or inefficiency that would necessitate a change in instance type or termination.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=58.3%, p99_cpu=71.6%, max_cpu=79.4%",
+      "current_monthly_cost": 30.2976,
+      "projected_monthly_cost": 30.2976,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.8666666666666667,
+      "details": "The report covers all key metrics with correct figures and is internally consistent, but the rationale is brief and doesn't explain why alternatives (e.g., downsizing) were ruled out given the 14-day clean window, and p99/max CPU figures appear only in waste_evidence rather than the technical explanation.",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 4,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 3,
+        "risk_communication": 5,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "```json\n{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance's p95 CPU utilization is within a healthy range, indicating no waste pattern and no need for action.\"\n  },\n  \"technical_explanation\": \"Agent 2's decision is based on the instance's CPU utilization metrics, which show a p95 CPU of 58.3% over 14 days, well within the healthy range. This suggests that the instance is properly sized for its workload and there is no indication of waste or inefficiency that would necessitate a change in instance type or termination.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=58.3%, p99_cpu=71.6%, max_cpu=79.4%\",\n    \"current_monthly_cost\": 30.2976,\n    \"projected_monthly_cost\": 30.2976,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}\n```",
+  "latency_ms": 1670,
+  "attempts": 1
+}

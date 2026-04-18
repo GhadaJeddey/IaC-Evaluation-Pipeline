@@ -1,0 +1,55 @@
+{
+  "scenario_id": "D1",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "OOM_HEAP",
+  "model": "qwen3-coder-32b",
+  "llm_response": {
+    "root_cause": "JVM heap exhaustion due to excessive garbage collection and batch processing of 15,000 transactions exceeding allocated heap space",
+    "root_cause_category": "OOM_HEAP",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "At 08:21:03, batch processing began for 15,000 transactions. GC pauses increased from 4.8s to 8.3s by 08:22:12. Heap usage reached 98.7% (1984MB/2010MB) by 08:22:31, triggering OutOfMemoryError: Java heap space at 08:22:44. Multiple threads failed with GC overhead limit exceeded errors, leading to JVM termination.",
+    "remediation": "Increase JVM heap size via -Xmx parameter or upgrade instance type to m5.large (8GB RAM) to provide sufficient memory for batch processing",
+    "aws_specific_notes": "Current t3.medium instance has 4GB RAM. Switching to m5.large provides 8GB RAM with consistent CPU performance (not burstable). Avoid t3.xlarge due to CPU credit limitations.",
+    "risk_assessment": {
+      "risks": [
+        "Batch processing failures during peak transactions",
+        "Potential cascading failures in payments pipeline"
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Confirm heap size configuration in JVM options, verify application can handle 15k+ transactions in batch mode with increased memory"
+    },
+    "terraform_suggested": true,
+    "terraform_block": "resource \"aws_instance\" \"java_payments_app_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"java-payments-app-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.88,
+      "details": "The response accurately identifies JVM heap exhaustion with precise log citations and a clear timeline, provides concrete remediation with instance-type rationale, but only implicitly mentions cascading pipeline failures rather than explicitly warning which dependent instances or services would be affected by the resize.",
+      "breakdown": {
+        "diagnosis_accuracy": 5,
+        "factual_correctness": 5,
+        "completeness": 5,
+        "trust_paragraph": 3,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OOM_HEAP  actual=OOM_HEAP"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "diagnosis_accuracy=5/5"
+    }
+  },
+  "raw_output": "<think>\nOkay, let's start by looking at the crash logs. The instance is a t3.medium, which has 4 GB of RAM. The logs show that the JVM is running out of heap space. The first OutOfMemoryError is \"Java heap space,\" and then there are multiple \"GC overhead limit exceeded\" errors. \n\nThe GC pause times are increasing, from 4821ms to 8304ms, and the heap usage is at 98.7%. This suggests that the JVM's heap is maxed out, leading to excessive garbage collection that can't keep up, causing the JVM to crash.\n\nSince the instance type is t3.medium, which is a burstable performance instance, but the main issue here is the heap size. The application is a Java-based payments processor, handling a batch of 15,000 transactions. Processing that many transactions in a single batch could be memory-intensive. \n\nThe root cause seems to be that the JVM's heap size is insufficient for the workload. The error messages point to OOM in the heap, not the kernel killing processes. So the category is OOM_HEAP. \n\nThe severity is P1_OUTAGE because the StatusCheckFailed alarm was triggered, indicating the instance is down. \n\nFor remediation, increasing the heap size might help, but since the instance has limited RAM, maybe upgrading to a larger instance type with more memory would be better. The current instance is t3.medium (4GB), switching to a t3.large (8GB) or a non-burstable instance like m5.large could provide more memory. However, the user might prefer a fixed-performance instance to avoid CPU credit issues. \n\nLooking at the Terraform, changing the instance_type to m5.large would give more memory and CPU without relying on burst credits. Also, adding the FinOpsAction tag as per the rules. \n\nI need to make sure the Terraform only changes the instance_type and adds the necessary tags. The root volume size might not be an issue here since the logs don't mention disk full. So the Terraform suggestion is to change the instance type to m5.large.\n</think>\n\n{\n  \"root_cause\": \"JVM heap exhaustion due to excessive garbage collection and batch processing of 15,000 transactions exceeding allocated heap space\",\n  \"root_cause_category\": \"OOM_HEAP\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"At 08:21:03, batch processing began for 15,000 transactions. GC pauses increased from 4.8s to 8.3s by 08:22:12. Heap usage reached 98.7% (1984MB/2010MB) by 08:22:31, triggering OutOfMemoryError: Java heap space at 08:22:44. Multiple threads failed with GC overhead limit exceeded errors, leading to JVM termination.\",\n  \"remediation\": \"Increase JVM heap size via -Xmx parameter or upgrade instance type to m5.large (8GB RAM) to provide sufficient memory for batch processing\",\n  \"aws_specific_notes\": \"Current t3.medium instance has 4GB RAM. Switching to m5.large provides 8GB RAM with consistent CPU performance (not burstable). Avoid t3.xlarge due to CPU credit limitations.\",\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Batch processing failures during peak transactions\",\n      \"Potential cascading failures in payments pipeline\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Confirm heap size configuration in JVM options, verify application can handle 15k+ transactions in batch mode with increased memory\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"java_payments_app_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"m5.large\\\"\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 30\\n    encrypted   = false\\n  }\\n\\n  tags = {\\n    Name        = \\\"java-payments-app-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"crash-remediation\\\"\\n  }\\n}\"\n}",
+  "latency_ms": 2359,
+  "attempts": 1
+}

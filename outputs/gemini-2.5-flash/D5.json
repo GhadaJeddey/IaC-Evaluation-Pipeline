@@ -1,0 +1,55 @@
+{
+  "scenario_id": "D5",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "TRANSIENT_OOM",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "root_cause": "The Linux kernel's Out-Of-Memory (OOM) killer terminated the python3 batch worker process due to excessive memory consumption during a large data aggregation job.",
+    "root_cause_category": "OOM_KERNEL",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The instance initiated a monthly report aggregation job, processing 2.1 million records. During this high-load operation, system memory became critically low (812MB available). The Linux kernel's OOM killer was invoked, terminating the python3 batch worker process (PID 7291) which had consumed approximately 2.9GB of resident memory. The application detected the OOM kill and successfully retried the job with a reduced batch size, which resolved the memory pressure. System memory returned to nominal levels (24.1GB available), and the batch job completed successfully. Despite the instance's recovery and job completion, a StatusCheckFailed alarm was triggered, likely due to the brief period of system unresponsiveness during the OOM event.",
+    "remediation": "Increase the instance's memory capacity by upgrading the instance type from r5.xlarge (32 GiB RAM) to r5.2xlarge (64 GiB RAM). This will provide sufficient memory for the batch worker to complete its monthly aggregation job without triggering the OOM killer, even at peak load.",
+    "aws_specific_notes": "The r5.xlarge instance type is memory-optimized, but the OOM event indicates that 32 GiB of RAM was insufficient for the peak memory demands of the batch process and other system overhead. Upgrading to r5.2xlarge doubles the available RAM, which is a common and effective strategy to mitigate OOM_KERNEL issues for memory-intensive workloads.",
+    "risk_assessment": {
+      "risks": [
+        "The instance will require a restart to apply the instance type change, causing a brief interruption to any running processes.",
+        "If the application has a memory leak that grows over time, a larger instance type might only delay the next OOM event."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "After applying the Terraform change and instance restart, monitor the instance's memory utilization (e.g., using CloudWatch metrics or `free -h` via SSH) during subsequent monthly report aggregation jobs. Confirm that MemAvailable remains at healthy levels and the OOM killer is not invoked. Also, verify the batch job completes successfully without retries due to OOM."
+    },
+    "terraform_suggested": true,
+    "terraform_block": "resource \"aws_instance\" \"batch_worker_prod_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.2xlarge\" # Increased memory from 32GiB to 64GiB to prevent OOM\n\n  root_block_device {\n    volume_type = \"gp3\"\n    volume_size = 100\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"batch-worker-prod-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.72,
+      "details": "The response accurately identifies the OOM kill event with correct PID, timestamps, and memory figures, provides a concrete remediation with Terraform and verification steps, but incorrectly assigns P1_OUTAGE severity when logs show full self-recovery, fabricates a StatusCheckFailed alarm not present in logs, assumes an r5.xlarge instance type without log evidence, and lacks any warning about dependent services affected by the required instance restart.",
+      "breakdown": {
+        "diagnosis_accuracy": 4,
+        "factual_correctness": 4,
+        "completeness": 4,
+        "trust_paragraph": 2,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": false,
+      "score": 0.0,
+      "details": "expected=TRANSIENT_OOM  actual=OOM_KERNEL"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 0.8,
+      "details": "diagnosis_accuracy=4/5"
+    }
+  },
+  "raw_output": "{\n  \"root_cause\": \"The Linux kernel's Out-Of-Memory (OOM) killer terminated the python3 batch worker process due to excessive memory consumption during a large data aggregation job.\",\n  \"root_cause_category\": \"OOM_KERNEL\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The instance initiated a monthly report aggregation job, processing 2.1 million records. During this high-load operation, system memory became critically low (812MB available). The Linux kernel's OOM killer was invoked, terminating the python3 batch worker process (PID 7291) which had consumed approximately 2.9GB of resident memory. The application detected the OOM kill and successfully retried the job with a reduced batch size, which resolved the memory pressure. System memory returned to nominal levels (24.1GB available), and the batch job completed successfully. Despite the instance's recovery and job completion, a StatusCheckFailed alarm was triggered, likely due to the brief period of system unresponsiveness during the OOM event.\",\n  \"remediation\": \"Increase the instance's memory capacity by upgrading the instance type from r5.xlarge (32 GiB RAM) to r5.2xlarge (64 GiB RAM). This will provide sufficient memory for the batch worker to complete its monthly aggregation job without triggering the OOM killer, even at peak load.\",\n  \"aws_specific_notes\": \"The r5.xlarge instance type is memory-optimized, but the OOM event indicates that 32 GiB of RAM was insufficient for the peak memory demands of the batch process and other system overhead. Upgrading to r5.2xlarge doubles the available RAM, which is a common and effective strategy to mitigate OOM_KERNEL issues for memory-intensive workloads.\",\n  \"risk_assessment\": {\n    \"risks\": [\n      \"The instance will require a restart to apply the instance type change, causing a brief interruption to any running processes.\",\n      \"If the application has a memory leak that grows over time, a larger instance type might only delay the next OOM event.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"After applying the Terraform change and instance restart, monitor the instance's memory utilization (e.g., using CloudWatch metrics or `free -h` via SSH) during subsequent monthly report aggregation jobs. Confirm that MemAvailable remains at healthy levels and the OOM killer is not invoked. Also, verify the batch job completes successfully without retries due to OOM.\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"batch_worker_prod_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"r5.2xlarge\\\" # Increased memory from 32GiB to 64GiB to prevent OOM\\n\\n  root_block_device {\\n    volume_type = \\\"gp3\\\"\\n    volume_size = 100\\n    encrypted   = true\\n  }\\n\\n  tags = {\\n    Name        = \\\"batch-worker-prod-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"crash-remediation\\\"\\n  }\\n}\"\n}",
+  "latency_ms": 18744,
+  "attempts": 1
+}

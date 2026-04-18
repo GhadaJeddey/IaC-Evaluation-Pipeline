@@ -1,0 +1,60 @@
+{
+  "scenario_id": "A4",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DOWNSIZE",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance exhibits consistently low CPU utilization, even during bursts, indicating significant oversizing, and the recommended instance type provides adequate resources."
+    },
+    "technical_explanation": "The 'batch-worker-bursty-01' (i-a004) instance, currently a c5.xlarge, shows a maximum CPU utilization of only 17.8% and a 95th percentile CPU of 9.4% over the last 14 days. Despite being identified as a 'bursty' workload (CV=1.84), these metrics clearly indicate that the current instance type is significantly over-provisioned. Downsizing to a c5.large instance, which offers half the vCPUs and memory, is projected to result in a CPU utilization of 18.8% and RAM utilization of 67.2%. These projected values provide ample capacity for the workload while achieving substantial cost savings without compromising performance.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=9.4%, max_cpu=17.8%, waste_per_month=$70.08",
+      "current_monthly_cost": 140.16,
+      "projected_monthly_cost": 70.08,
+      "monthly_savings": 70.08,
+      "annual_savings": 840.96
+    },
+    "risk_assessment": {
+      "risks": [
+        "Potential for performance degradation if the workload unexpectedly increases beyond projected capacity.",
+        "Impact on dependent services if the instance type change causes unforeseen issues."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Monitor CPU and RAM utilization on the c5.large instance for at least 72 hours post-change to ensure performance remains acceptable. Verify application logs for any errors or performance warnings. Conduct a smoke test of critical application functionalities."
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "SCRIPT_HANDLES",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.9333333333333333,
+      "details": "All key facts are explicitly covered with correct figures and the explanation is resource-specific, though the rationale could more explicitly address why the high CV (1.84) does not preclude downsizing despite the bursty classification.",
+      "breakdown": {
+        "key_facts_coverage": 5,
+        "explanation_clarity": 5,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 4,
+        "risk_communication": 4,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DOWNSIZE\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance exhibits consistently low CPU utilization, even during bursts, indicating significant oversizing, and the recommended instance type provides adequate resources.\"\n  },\n  \"technical_explanation\": \"The 'batch-worker-bursty-01' (i-a004) instance, currently a c5.xlarge, shows a maximum CPU utilization of only 17.8% and a 95th percentile CPU of 9.4% over the last 14 days. Despite being identified as a 'bursty' workload (CV=1.84), these metrics clearly indicate that the current instance type is significantly over-provisioned. Downsizing to a c5.large instance, which offers half the vCPUs and memory, is projected to result in a CPU utilization of 18.8% and RAM utilization of 67.2%. These projected values provide ample capacity for the workload while achieving substantial cost savings without compromising performance.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=9.4%, max_cpu=17.8%, waste_per_month=$70.08\",\n    \"current_monthly_cost\": 140.16,\n    \"projected_monthly_cost\": 70.08,\n    \"monthly_savings\": 70.08,\n    \"annual_savings\": 840.96\n  },\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Potential for performance degradation if the workload unexpectedly increases beyond projected capacity.\",\n      \"Impact on dependent services if the instance type change causes unforeseen issues.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Monitor CPU and RAM utilization on the c5.large instance for at least 72 hours post-change to ensure performance remains acceptable. Verify application logs for any errors or performance warnings. Conduct a smoke test of critical application functionalities.\"\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"SCRIPT_HANDLES\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 14600,
+  "attempts": 1
+}

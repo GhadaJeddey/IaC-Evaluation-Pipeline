@@ -1,0 +1,60 @@
+{
+  "scenario_id": "A17",
+  "tier": "tier_a",
+  "terraform_mode": 2,
+  "expected_verdict": "SUBOPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DOWNSIZE",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is significantly oversized with very low CPU and RAM utilization, and the recommended type provides ample headroom for the workload."
+    },
+    "technical_explanation": "The 'batch-worker-oversized-01' instance, currently a c5.2xlarge, exhibits extremely low CPU utilization (P95 CPU at 5.2%, P99 CPU at 6.8%, Max CPU at 9.3%) and low RAM utilization (P95 RAM at 15.1%) over the last 30 days. The low coefficient of variation (0.09) indicates a stable, non-bursty workload, making it a strong candidate for downsizing. Downsizing to a c5.xlarge would effectively double the current utilization percentages to a projected P95 CPU of 10.4% and P95 RAM of 30.2%. These projected values are still very conservative and provide significant headroom for potential workload spikes, while halving the operational cost.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=5.2%, p95_ram=15.1%, waste_per_month=$124.10",
+      "current_monthly_cost": 248.2,
+      "projected_monthly_cost": 124.1,
+      "monthly_savings": 124.1,
+      "annual_savings": 1489.2
+    },
+    "risk_assessment": {
+      "risks": [
+        "Potential performance degradation if workload patterns change unexpectedly or if the current metrics do not fully capture peak demands.",
+        "Service disruption during instance type change."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Monitor CPU and RAM utilization closely for 7-14 days post-downsizing to ensure the instance can handle the workload. Verify batch job completion times and error rates remain within acceptable thresholds. Ensure application metrics and logs show no adverse impact."
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "SCRIPT_HANDLES",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.6,
+      "details": "The explanation is specific and well-grounded for a c5.xlarge recommendation but completely omits the key finding that c5.large is viable (projected 20.8% CPU, 30.2% RAM \u2014 both within safety thresholds) and would save an additional ~$62/month, making the one-step downsize the suboptimal outcome the scenario is testing.",
+      "breakdown": {
+        "key_facts_coverage": 2,
+        "explanation_clarity": 4,
+        "factual_grounding": 3,
+        "decision_rationale_quality": 2,
+        "risk_communication": 3,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": false,
+      "score": 0.0,
+      "details": "expected=SUBOPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DOWNSIZE\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is significantly oversized with very low CPU and RAM utilization, and the recommended type provides ample headroom for the workload.\"\n  },\n  \"technical_explanation\": \"The 'batch-worker-oversized-01' instance, currently a c5.2xlarge, exhibits extremely low CPU utilization (P95 CPU at 5.2%, P99 CPU at 6.8%, Max CPU at 9.3%) and low RAM utilization (P95 RAM at 15.1%) over the last 30 days. The low coefficient of variation (0.09) indicates a stable, non-bursty workload, making it a strong candidate for downsizing. Downsizing to a c5.xlarge would effectively double the current utilization percentages to a projected P95 CPU of 10.4% and P95 RAM of 30.2%. These projected values are still very conservative and provide significant headroom for potential workload spikes, while halving the operational cost.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=5.2%, p95_ram=15.1%, waste_per_month=$124.10\",\n    \"current_monthly_cost\": 248.20,\n    \"projected_monthly_cost\": 124.10,\n    \"monthly_savings\": 124.10,\n    \"annual_savings\": 1489.20\n  },\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Potential performance degradation if workload patterns change unexpectedly or if the current metrics do not fully capture peak demands.\",\n      \"Service disruption during instance type change.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Monitor CPU and RAM utilization closely for 7-14 days post-downsizing to ensure the instance can handle the workload. Verify batch job completion times and error rates remain within acceptable thresholds. Ensure application metrics and logs show no adverse impact.\"\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"SCRIPT_HANDLES\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 10038,
+  "attempts": 1
+}

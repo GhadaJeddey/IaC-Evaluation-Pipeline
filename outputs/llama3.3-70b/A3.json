@@ -1,0 +1,57 @@
+{
+  "scenario_id": "A3",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DOWNSIZE",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is consistently underutilized, with p95 CPU at 7.8% and peak CPU at 17.6%, making downsizing to a c5.large a safe and cost-effective decision."
+    },
+    "technical_explanation": "The instance's CPU utilization is well below the capacity thresholds, indicating that it is oversized for its current workload. The recommended instance type, c5.large, is expected to provide sufficient resources while reducing costs. The projected CPU and RAM utilization percentages suggest that the downsized instance will still have ample headroom for spikes in demand.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=7.8%, max_cpu=17.6%, current_cost=$0.1920/hr, recommended_cost=$0.0960/hr",
+      "current_monthly_cost": 414.72,
+      "projected_monthly_cost": 207.36,
+      "monthly_savings": 207.36,
+      "annual_savings": 2488.32
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7,
+      "details": "The report covers the core metrics (p95 7.8%, peak 17.6%) and correct action, but technical_explanation is generic \u2014 it omits the specific projected 15.6% CPU on c5.large, doesn't name the resource, and uses vague language ('ample headroom') instead of citing the concrete projected figure.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 3,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 4,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "```json\n{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DOWNSIZE\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is consistently underutilized, with p95 CPU at 7.8% and peak CPU at 17.6%, making downsizing to a c5.large a safe and cost-effective decision.\"\n  },\n  \"technical_explanation\": \"The instance's CPU utilization is well below the capacity thresholds, indicating that it is oversized for its current workload. The recommended instance type, c5.large, is expected to provide sufficient resources while reducing costs. The projected CPU and RAM utilization percentages suggest that the downsized instance will still have ample headroom for spikes in demand.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=7.8%, max_cpu=17.6%, current_cost=$0.1920/hr, recommended_cost=$0.0960/hr\",\n    \"current_monthly_cost\": 414.72,\n    \"projected_monthly_cost\": 207.36,\n    \"monthly_savings\": 207.36,\n    \"annual_savings\": 2488.32\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}\n```",
+  "latency_ms": 1657,
+  "attempts": 1
+}

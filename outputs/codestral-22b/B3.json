@@ -1,0 +1,150 @@
+{
+  "scenario_id": "B3",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b301": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b302": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b303": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_block_must_be_null": true,
+      "expected_pipeline_warning_acknowledged": null,
+      "terraform_block_expected": null,
+      "terraform_change": null
+    }
+  },
+  "model": "codestral-22b",
+  "llm_response": {
+    "instances": {
+      "i-b301": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Downsize primary instance first to ensure secondary can safely follow."
+        },
+        "technical_explanation": "The primary instance meets the tightened thresholds for CPU usage, and downsizing to r5.large is safe and cost-effective.",
+        "cost_report": {
+          "waste_evidence": "P95 CPU (2.3%) and peak (9.2%) meet tightened thresholds.",
+          "current_monthly_cost": 181.44,
+          "projected_monthly_cost": 90.72,
+          "monthly_savings": 90.72,
+          "annual_savings": 1088.64
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      },
+      "i-b302": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Downsize secondary instance after primary to maintain data consistency."
+        },
+        "technical_explanation": "The secondary instance can safely be downsized to r5.medium based on the primary instance's P99 CPU usage.",
+        "cost_report": {
+          "waste_evidence": "Primary P99 CPU (6.1%) allows safe downsize to r5.medium.",
+          "current_monthly_cost": 90.72,
+          "projected_monthly_cost": 45.36,
+          "monthly_savings": 45.36,
+          "annual_savings": 544.32
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      },
+      "i-b303": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "No waste pattern detected; instance is already optimally sized."
+        },
+        "technical_explanation": "The analytics replica instance is already optimally sized and does not exhibit any waste patterns.",
+        "cost_report": {
+          "waste_evidence": "No waste pattern detected.",
+          "current_monthly_cost": 90.72,
+          "projected_monthly_cost": 90.72,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      }
+    },
+    "group_summary": "All instances are covered. Primary instance should be downsized first to ensure secondary can safely follow. Total savings: $136.08/month ($1,632.96/year).",
+    "group_cost_report": {
+      "total_monthly_savings": 136.08,
+      "total_annual_savings": 1632.96,
+      "instances_actioned": 2
+    },
+    "execution_order": [
+      "i-b301",
+      "i-b302",
+      "i-b303"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": false,
+      "score": 0.0,
+      "details": "Order violations: ['i-b301(dependent_primary) before i-b302(dependent_secondary)']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": false,
+      "score": 0.5666666666666667,
+      "details": "The report covers the multi-instance structure and group aggregation correctly, but technical explanations are generic and thinly grounded \u2014 they cite a few metrics without explaining detection rationale, instance names, or why alternatives were rejected.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 2,
+        "factual_grounding": 3,
+        "decision_rationale_quality": 2,
+        "risk_communication": 3,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 3/3"
+    }
+  },
+  "raw_output": "{\n  \"instances\": {\n    \"i-b301\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Downsize primary instance first to ensure secondary can safely follow.\"\n      },\n      \"technical_explanation\": \"The primary instance meets the tightened thresholds for CPU usage, and downsizing to r5.large is safe and cost-effective.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"P95 CPU (2.3%) and peak (9.2%) meet tightened thresholds.\",\n        \"current_monthly_cost\": 181.44,\n        \"projected_monthly_cost\": 90.72,\n        \"monthly_savings\": 90.72,\n        \"annual_savings\": 1088.64\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    },\n    \"i-b302\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Downsize secondary instance after primary to maintain data consistency.\"\n      },\n      \"technical_explanation\": \"The secondary instance can safely be downsized to r5.medium based on the primary instance's P99 CPU usage.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"Primary P99 CPU (6.1%) allows safe downsize to r5.medium.\",\n        \"current_monthly_cost\": 90.72,\n        \"projected_monthly_cost\": 45.36,\n        \"monthly_savings\": 45.36,\n        \"annual_savings\": 544.32\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    },\n    \"i-b303\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"No waste pattern detected; instance is already optimally sized.\"\n      },\n      \"technical_explanation\": \"The analytics replica instance is already optimally sized and does not exhibit any waste patterns.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"No waste pattern detected.\",\n        \"current_monthly_cost\": 90.72,\n        \"projected_monthly_cost\": 90.72,\n        \"monthly_savings\": 0.0,\n        \"annual_savings\": 0.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    }\n  },\n  \"group_summary\": \"All instances are covered. Primary instance should be downsized first to ensure secondary can safely follow. Total savings: $136.08/month ($1,632.96/year).\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 136.08,\n    \"total_annual_savings\": 1632.96,\n    \"instances_actioned\": 2\n  },\n  \"execution_order\": [\"i-b301\", \"i-b302\", \"i-b303\"]\n}",
+  "latency_ms": 5881,
+  "attempts": 1
+}

@@ -1,0 +1,118 @@
+{
+  "scenario_id": "B2",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b201": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b202": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    }
+  },
+  "model": "codestral-22b",
+  "llm_response": {
+    "instances": {
+      "i-b201": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Downsizing is optimal as the instance is oversized and running at low CPU utilization."
+        },
+        "technical_explanation": "The instance is running at a low CPU utilization (8.3% p95) and is oversized for its current workload. Downsizing to a smaller instance type will reduce costs without impacting performance.",
+        "cost_report": {
+          "waste_evidence": "P95 CPU (8.3%) and peak (19.4%) below capacity over 14 days.",
+          "current_monthly_cost": 141.12,
+          "projected_monthly_cost": 70.56,
+          "monthly_savings": 70.56,
+          "annual_savings": 846.72
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      },
+      "i-b202": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "STOP",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Stopping the instance is optimal as it is idle and not required for current operations.",
+          "execution_order": "After i-b201"
+        },
+        "technical_explanation": "The instance is running at a very low CPU utilization (2.8% p95) and is not required for current operations. Stopping the instance will reduce costs without impacting performance.",
+        "cost_report": {
+          "waste_evidence": "P95 CPU (2.8%) below thresholds over 7 days.",
+          "current_monthly_cost": 30.05,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 30.05,
+          "annual_savings": 360.6
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      }
+    },
+    "group_summary": "Both instances are oversized or idle. Downsizing i-b201 and stopping i-b202 will reduce costs without impacting performance. The execution order is important to ensure that the downsizing of i-b201 does not affect the stopping of i-b202.",
+    "group_cost_report": {
+      "total_monthly_savings": 100.61,
+      "total_annual_savings": 1207.32,
+      "instances_actioned": 2
+    },
+    "execution_order": [
+      "i-b201",
+      "i-b202"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": true,
+      "score": 1.0,
+      "details": "Correct order: ['i-b201', 'i-b202']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7333333333333333,
+      "details": "The report is structurally complete with consistent numbers and concrete metrics, but technical explanations are generic and lack resource-specific context beyond the CPU figures, and risk assessments are empty for a STOP action without acknowledging potential data-loss or service-dependency risks.",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 3,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 3,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 2/2"
+    }
+  },
+  "raw_output": "{\n  \"instances\": {\n    \"i-b201\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Downsizing is optimal as the instance is oversized and running at low CPU utilization.\"\n      },\n      \"technical_explanation\": \"The instance is running at a low CPU utilization (8.3% p95) and is oversized for its current workload. Downsizing to a smaller instance type will reduce costs without impacting performance.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"P95 CPU (8.3%) and peak (19.4%) below capacity over 14 days.\",\n        \"current_monthly_cost\": 141.12,\n        \"projected_monthly_cost\": 70.56,\n        \"monthly_savings\": 70.56,\n        \"annual_savings\": 846.72\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    },\n    \"i-b202\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"STOP\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Stopping the instance is optimal as it is idle and not required for current operations.\",\n        \"execution_order\": \"After i-b201\"\n      },\n      \"technical_explanation\": \"The instance is running at a very low CPU utilization (2.8% p95) and is not required for current operations. Stopping the instance will reduce costs without impacting performance.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"P95 CPU (2.8%) below thresholds over 7 days.\",\n        \"current_monthly_cost\": 30.05,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 30.05,\n        \"annual_savings\": 360.6\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    }\n  },\n  \"group_summary\": \"Both instances are oversized or idle. Downsizing i-b201 and stopping i-b202 will reduce costs without impacting performance. The execution order is important to ensure that the downsizing of i-b201 does not affect the stopping of i-b202.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 100.61,\n    \"total_annual_savings\": 1207.32,\n    \"instances_actioned\": 2\n  },\n  \"execution_order\": [\"i-b201\", \"i-b202\"]\n}",
+  "latency_ms": 4304,
+  "attempts": 1
+}

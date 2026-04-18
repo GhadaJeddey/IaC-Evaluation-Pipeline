@@ -1,0 +1,54 @@
+{
+  "scenario_id": "D1",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "OOM_HEAP",
+  "model": "codestral-22b",
+  "llm_response": {
+    "root_cause": "The Java application crashed due to excessive garbage collection pauses and heap exhaustion, leading to GC overhead limit exceeded errors.",
+    "root_cause_category": "OOM_HEAP",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The application started processing a large batch of transactions, causing significant garbage collection pauses. The heap usage reached critical levels, leading to OutOfMemoryError and GC overhead limit exceeded errors, which ultimately caused the JVM to terminate.",
+    "remediation": "Increase the JVM heap size by adjusting the -Xmx parameter to accommodate the large batch processing requirements.",
+    "aws_specific_notes": null,
+    "risk_assessment": {
+      "risks": [
+        "Increasing the JVM heap size may require additional RAM, potentially leading to OOM_KERNEL if the instance's memory is insufficient."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Verify the current memory usage and available RAM on the instance before increasing the JVM heap size."
+    },
+    "terraform_suggested": false,
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.72,
+      "details": "The response correctly identifies OOM/GC overhead as the root cause with accurate categorization, but the trust_paragraph only mentions RAM risk without warning about dependent services affected by the outage, and actionability lacks specifics like recommended heap size or batch size tuning.",
+      "breakdown": {
+        "diagnosis_accuracy": 5,
+        "factual_correctness": 4,
+        "completeness": 4,
+        "trust_paragraph": 2,
+        "actionability": 3
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OOM_HEAP  actual=OOM_HEAP"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "diagnosis_accuracy=5/5"
+    }
+  },
+  "raw_output": "{\n  \"root_cause\": \"The Java application crashed due to excessive garbage collection pauses and heap exhaustion, leading to GC overhead limit exceeded errors.\",\n  \"root_cause_category\": \"OOM_HEAP\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The application started processing a large batch of transactions, causing significant garbage collection pauses. The heap usage reached critical levels, leading to OutOfMemoryError and GC overhead limit exceeded errors, which ultimately caused the JVM to terminate.\",\n  \"remediation\": \"Increase the JVM heap size by adjusting the -Xmx parameter to accommodate the large batch processing requirements.\",\n  \"aws_specific_notes\": null,\n  \"risk_assessment\": {\n    \"risks\": [\"Increasing the JVM heap size may require additional RAM, potentially leading to OOM_KERNEL if the instance's memory is insufficient.\"],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Verify the current memory usage and available RAM on the instance before increasing the JVM heap size.\"\n  },\n  \"terraform_suggested\": false,\n  \"terraform_block\": null\n}",
+  "latency_ms": 2163,
+  "attempts": 1
+}

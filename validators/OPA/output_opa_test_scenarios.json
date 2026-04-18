@@ -1,0 +1,370 @@
+{
+  "summary": {
+    "total": 32,
+    "ok": 32,
+    "mismatch": 0
+  },
+  "results": [
+    {
+      "scenario_id": "S01_valid_instance_type_pass",
+      "policy_under_test": "valid_instance_type.rego",
+      "description": "EC2 instance uses t3.medium which is in the allowed list — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S02_valid_instance_type_fail",
+      "policy_under_test": "valid_instance_type.rego",
+      "description": "LLM hallucinated instance type 't3.huge' which does not exist in AWS — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.web uses disallowed instance_type 't3.huge' — must be one of {\"c5.2xlarge\", \"c5.large\", \"c5.xlarge\", \"m5.large\", \"m5.xlarge\", \"r5.large\", \"r5.xlarge\", \"t3.large\", \"t3.medium\", \"t3.micro\", \"t3.small\", \"t3.xlarge\"}"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S03_no_unencrypted_volumes_pass",
+      "policy_under_test": "no_unencrypted_volumes.rego",
+      "description": "root_block_device has encrypted = true — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S04_no_unencrypted_volumes_fail",
+      "policy_under_test": "no_unencrypted_volumes.rego",
+      "description": "root_block_device has encrypted = false (matches all tier_a/b/d scenarios) — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.app has an unencrypted root_block_device — set encrypted = true"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S05_production_requires_tags_pass",
+      "policy_under_test": "production_requires_tags.rego",
+      "description": "Instance has both Name and Environment tags — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S06_production_requires_tags_fail",
+      "policy_under_test": "production_requires_tags.rego",
+      "description": "LLM omitted the Environment tag entirely — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.api is missing required tag 'Environment'"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S07_log_retention_required_pass",
+      "policy_under_test": "log_retention_required.rego",
+      "description": "CloudWatch log group has retention_in_days = 30 — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S08_log_retention_required_fail",
+      "policy_under_test": "log_retention_required.rego",
+      "description": "CloudWatch log group has no retention_in_days (tier-c C1 scenario) — logs kept forever, deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_cloudwatch_log_group.app_logs has no retention_in_days — logs will be kept forever (costly)"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S09_log_retention_max_365_pass",
+      "policy_under_test": "log_retention_max_365.rego",
+      "description": "Retention set to 90 days — within the 365-day cap, no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S10_log_retention_max_365_fail",
+      "policy_under_test": "log_retention_max_365.rego",
+      "description": "LLM set retention to 730 days — exceeds FinOps cap, deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_cloudwatch_log_group.audit has invalid retention_in_days=730 — must be one of {1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653}",
+        "aws_cloudwatch_log_group.audit retention_in_days=730 exceeds the 365-day FinOps cap"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S11_no_public_s3_pass",
+      "policy_under_test": "no_public_s3.rego",
+      "description": "S3 bucket has no ACL set (defaults to private) — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S12_no_public_s3_fail",
+      "policy_under_test": "no_public_s3.rego",
+      "description": "LLM set acl = public-read on an archival bucket — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_s3_bucket.archive has a public ACL 'public-read' — archival buckets must be private"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S13_downsize_is_cheaper_pass",
+      "policy_under_test": "downsize_is_cheaper.rego",
+      "description": "DOWNSIZE from t3.large ($0.0832/hr) to t3.medium ($0.0416/hr) — correctly cheaper, no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S14_downsize_is_cheaper_fail",
+      "policy_under_test": "downsize_is_cheaper.rego",
+      "description": "LLM upsized from t3.medium to t3.large during a DOWNSIZE action — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.idle_server: DOWNSIZE from t3.medium ($0.0416/hr) to t3.large ($0.0832/hr) does not reduce cost — new type must be strictly cheaper"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S15_no_resource_scope_creep_pass",
+      "policy_under_test": "no_resource_scope_creep.rego",
+      "description": "Plan only contains aws_instance — within allowed scope, no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S16_no_resource_scope_creep_fail",
+      "policy_under_test": "no_resource_scope_creep.rego",
+      "description": "LLM hallucinated an aws_iam_role alongside the EC2 update — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "unexpected resource type 'aws_iam_role' (name: hallucinated_role) — LLM introduced a resource outside the allowed scope",
+        "aws_instance.web is missing required tag 'Environment'",
+        "aws_instance.web is missing required tag 'Name'"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S17_resize_only_changes_instance_type_pass",
+      "policy_under_test": "resize_only_changes_instance_type.rego",
+      "description": "Update changes only instance_type — all other attributes identical, no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S18_resize_only_changes_instance_type_fail",
+      "policy_under_test": "resize_only_changes_instance_type.rego",
+      "description": "LLM changed both instance_type and tags during a resize — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.app update changes 'tags' which should not be modified during a resize (before={\"Environment\": \"production\", \"Name\": \"app\"}, after={\"Environment\": \"production\", \"Name\": \"app-resized\"})"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S19_no_ami_change_pass",
+      "policy_under_test": "no_ami_change.rego",
+      "description": "Update only changes instance_type, AMI stays identical — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S20_no_ami_change_fail",
+      "policy_under_test": "no_ami_change.rego",
+      "description": "LLM swapped the AMI during a resize — would force destroy+recreate, deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.batch changes AMI from 'ami-0c55b159cbfafe1f0' to 'ami-0abcdef1234567890' — AMI must not change during a FinOps action",
+        "aws_instance.batch update changes 'ami' which should not be modified during a resize (before=ami-0c55b159cbfafe1f0, after=ami-0abcdef1234567890)",
+        "aws_instance.batch is missing required tag 'Environment'",
+        "aws_instance.batch is missing required tag 'Name'"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S21_valid_volume_type_pass",
+      "policy_under_test": "valid_volume_type.rego",
+      "description": "root_block_device uses gp3 which is a valid AWS volume type — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S22_valid_volume_type_fail",
+      "policy_under_test": "valid_volume_type.rego",
+      "description": "LLM wrote volume_type = 'ssd' which is not a valid AWS volume type — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.web root_block_device has invalid volume_type 'ssd' — must be one of {\"gp2\", \"gp3\", \"io1\", \"io2\", \"sc1\", \"st1\", \"standard\"}"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S23_valid_ec2_state_pass",
+      "policy_under_test": "valid_ec2_state.rego",
+      "description": "aws_ec2_instance_state uses 'stopped' which is a valid state — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S24_valid_ec2_state_fail",
+      "policy_under_test": "valid_ec2_state.rego",
+      "description": "LLM wrote state = 'halt' which AWS does not recognise — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_ec2_instance_state.stop_idle has invalid state 'halt' — must be one of {\"running\", \"stopped\", \"terminated\"}"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S25_no_hardcoded_credentials_pass",
+      "policy_under_test": "no_hardcoded_credentials.rego",
+      "description": "No secrets or key patterns in any resource attribute — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S26_no_hardcoded_credentials_fail",
+      "policy_under_test": "no_hardcoded_credentials.rego",
+      "description": "LLM embedded an AWS access key pattern in a tag — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.web contains a string matching an AWS access key pattern — remove hardcoded credentials"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S27_no_create_replace_on_resize_pass",
+      "policy_under_test": "no_create_replace_on_resize.rego",
+      "description": "Instance resize is an in-place update action=['update'] — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S28_no_create_replace_on_resize_fail",
+      "policy_under_test": "no_create_replace_on_resize.rego",
+      "description": "LLM triggered a destroy+recreate cycle on an instance — catastrophic for production, deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.api is missing required tag 'Environment'",
+        "aws_instance.api is missing required tag 'Name'",
+        "aws_instance.api is planned for destroy+recreate [\"delete\", \"create\"] — a resize must be an in-place update only"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S29_no_tag_removal_pass",
+      "policy_under_test": "no_tag_removal.rego",
+      "description": "Update preserves all original tags and only changes instance_type — no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S30_no_tag_removal_fail",
+      "policy_under_test": "no_tag_removal.rego",
+      "description": "LLM dropped the 'Team' tag when rewriting the resource block — deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.frontend update changes 'tags' which should not be modified during a resize (before={\"Environment\": \"production\", \"Name\": \"frontend-01\", \"Team\": \"platform\"}, after={\"Environment\": \"production\", \"Name\": \"frontend-01\"})",
+        "aws_instance.frontend removes existing tag 'Team'='platform' — all original tags must be preserved"
+      ],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S31_no_prevent_destroy_on_terminate_pass",
+      "policy_under_test": "no_prevent_destroy_on_terminate.rego",
+      "description": "Resource being deleted has no lifecycle block — clean termination, no deny expected",
+      "expected_result": "pass",
+      "actual_result": "pass",
+      "conformant": true,
+      "failed_rules": [],
+      "mismatch_description": null
+    },
+    {
+      "scenario_id": "S32_no_prevent_destroy_on_terminate_fail",
+      "policy_under_test": "no_prevent_destroy_on_terminate.rego",
+      "description": "Resource being deleted has lifecycle.prevent_destroy = true — blocks termination, deny must fire",
+      "expected_result": "fail",
+      "actual_result": "fail",
+      "conformant": true,
+      "failed_rules": [
+        "aws_instance.zombie is being deleted but has lifecycle.prevent_destroy = true — remove it to allow termination"
+      ],
+      "mismatch_description": null
+    }
+  ]
+}

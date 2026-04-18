@@ -1,0 +1,57 @@
+{
+  "scenario_id": "C8",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": "OPTIMAL",
+  "model": "codestral-22b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DESTROY",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The ALB has no healthy targets, no requests, and has been idle for 7 days \u2014 confirmed ghost load balancer."
+    },
+    "technical_explanation": "The ALB api-staging-alb has been identified as a ghost load balancer due to having 0 healthy targets and 0 requests over 7 days. ALBs are stateless, so there is no data loss risk. The associated listener and target group should be removed to ensure a clean removal of the ALB.",
+    "cost_report": {
+      "waste_evidence": "healthy_host_count=0, request_count_avg_per_day=0, idle_days=7, cost_per_month=18.4",
+      "current_monthly_cost": 18.4,
+      "projected_monthly_cost": null,
+      "monthly_savings": 18.4,
+      "annual_savings": 220.8
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7,
+      "details": "The report covers the core ghost-resource finding with correct metrics and costs, but misses the critical verification step (check Route 53/DNS references before destroy) and does not explicitly mention the lifecycle prevent_destroy requirement for all 3 dependent resources.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 4,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 4,
+        "risk_communication": 2,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DESTROY\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The ALB has no healthy targets, no requests, and has been idle for 7 days \u2014 confirmed ghost load balancer.\"\n  },\n  \"technical_explanation\": \"The ALB api-staging-alb has been identified as a ghost load balancer due to having 0 healthy targets and 0 requests over 7 days. ALBs are stateless, so there is no data loss risk. The associated listener and target group should be removed to ensure a clean removal of the ALB.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"healthy_host_count=0, request_count_avg_per_day=0, idle_days=7, cost_per_month=18.4\",\n    \"current_monthly_cost\": 18.4,\n    \"projected_monthly_cost\": null,\n    \"monthly_savings\": 18.4,\n    \"annual_savings\": 220.8\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 2293,
+  "attempts": 1
+}

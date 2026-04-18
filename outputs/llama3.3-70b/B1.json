@@ -1,0 +1,123 @@
+{
+  "scenario_id": "B1",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b101": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b102": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_block_must_be_null": true,
+      "expected_pipeline_warning_acknowledged": null,
+      "terraform_block_expected": null,
+      "terraform_change": null
+    }
+  },
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "instances": {
+      "i-b101": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "STOP",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "The instance is idle with a p95 CPU utilization of 3.1%, which is below the threshold, and Agent 2 has deemed it safe to stop, so it will be stopped first in the execution order."
+        },
+        "technical_explanation": "The instance is not being utilized efficiently, with low CPU usage, making it a candidate for stopping to reduce waste.",
+        "cost_report": {
+          "waste_evidence": "p95_cpu: 3.1%, waste_per_month: $30.05",
+          "current_monthly_cost": 30.784,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 30.784,
+          "annual_savings": 369.408
+        },
+        "risk_assessment": {
+          "risks": [
+            "potential data loss if not properly handled before stopping"
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "Verify that all necessary data is saved and that the instance can be safely stopped without disrupting production."
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": {
+          "resource": "aws_instance",
+          "name": "frontend_server_01",
+          "instance_state": "stopped"
+        }
+      },
+      "i-b102": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "The instance is not idle and does not exhibit any waste patterns, so no action is required and it will be left running."
+        },
+        "technical_explanation": "The instance is being utilized efficiently, with high CPU usage, making it not a candidate for stopping or downsizing.",
+        "cost_report": {
+          "waste_evidence": "No waste pattern detected",
+          "current_monthly_cost": 30.784,
+          "projected_monthly_cost": 30.784,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      }
+    },
+    "group_summary": "The group consists of two instances, one of which is idle and can be stopped to reduce waste, while the other is being utilized efficiently and does not require any action.",
+    "group_cost_report": {
+      "total_monthly_savings": 30.784,
+      "total_annual_savings": 369.408,
+      "instances_actioned": 1
+    },
+    "execution_order": [
+      "i-b101",
+      "i-b102"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": true,
+      "score": 1.0,
+      "details": "Correct order: ['i-b101', 'i-b102']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.6,
+      "details": "The report correctly identifies and acts on the idle instance with a concrete CPU metric, but technical explanations remain generic (no resource name, no stopped-days or cost/hr citations) and the risk for i-b101 is vague rather than operationally specific.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 2,
+        "factual_grounding": 3,
+        "decision_rationale_quality": 3,
+        "risk_communication": 3,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 2/2"
+    }
+  },
+  "raw_output": "```json\n{\n  \"instances\": {\n    \"i-b101\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"STOP\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"The instance is idle with a p95 CPU utilization of 3.1%, which is below the threshold, and Agent 2 has deemed it safe to stop, so it will be stopped first in the execution order.\"\n      },\n      \"technical_explanation\": \"The instance is not being utilized efficiently, with low CPU usage, making it a candidate for stopping to reduce waste.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p95_cpu: 3.1%, waste_per_month: $30.05\",\n        \"current_monthly_cost\": 30.784,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 30.784,\n        \"annual_savings\": 369.408\n      },\n      \"risk_assessment\": {\n        \"risks\": [\"potential data loss if not properly handled before stopping\"],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Verify that all necessary data is saved and that the instance can be safely stopped without disrupting production.\"\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": {\n        \"resource\": \"aws_instance\",\n        \"name\": \"frontend_server_01\",\n        \"instance_state\": \"stopped\"\n      }\n    },\n    \"i-b102\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"The instance is not idle and does not exhibit any waste patterns, so no action is required and it will be left running.\"\n      },\n      \"technical_explanation\": \"The instance is being utilized efficiently, with high CPU usage, making it not a candidate for stopping or downsizing.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"No waste pattern detected\",\n        \"current_monthly_cost\": 30.784,\n        \"projected_monthly_cost\": 30.784,\n        \"monthly_savings\": 0.0,\n        \"annual_savings\": 0.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    }\n  },\n  \"group_summary\": \"The group consists of two instances, one of which is idle and can be stopped to reduce waste, while the other is being utilized efficiently and does not require any action.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 30.784,\n    \"total_annual_savings\": 369.408,\n    \"instances_actioned\": 1\n  },\n  \"execution_order\": [\"i-b101\", \"i-b102\"]\n}\n```",
+  "latency_ms": 2187,
+  "attempts": 1
+}

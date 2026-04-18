@@ -1,0 +1,57 @@
+{
+  "scenario_id": "C3",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": "OPTIMAL",
+  "model": "codestral-22b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DESTROY",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The EIP is unattached and carries no data, making it a confirmed ghost resource."
+    },
+    "technical_explanation": "The EIP has been unattached for 12 days, and since it carries no data, it is safe to destroy. The decision is optimal as it correctly identifies the resource as a ghost resource and recommends destruction without any data loss risk.",
+    "cost_report": {
+      "waste_evidence": "unattached_days=12, cost_per_month=3.6",
+      "current_monthly_cost": 3.6,
+      "projected_monthly_cost": null,
+      "monthly_savings": 3.6,
+      "annual_savings": 43.2
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": false,
+      "score": 0.5333333333333333,
+      "details": "The report correctly identifies the core finding and numbers but omits key facts (specific IP 54.23.11.204, FinOpsAction tag requirement, lifecycle prevent_destroy = false) and uses generic boilerplate language rather than resource-specific detail.",
+      "breakdown": {
+        "key_facts_coverage": 2,
+        "explanation_clarity": 2,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 2,
+        "risk_communication": 3,
+        "completeness": 3
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DESTROY\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The EIP is unattached and carries no data, making it a confirmed ghost resource.\"\n  },\n  \"technical_explanation\": \"The EIP has been unattached for 12 days, and since it carries no data, it is safe to destroy. The decision is optimal as it correctly identifies the resource as a ghost resource and recommends destruction without any data loss risk.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"unattached_days=12, cost_per_month=3.6\",\n    \"current_monthly_cost\": 3.6,\n    \"projected_monthly_cost\": null,\n    \"monthly_savings\": 3.6,\n    \"annual_savings\": 43.2\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 1952,
+  "attempts": 1
+}

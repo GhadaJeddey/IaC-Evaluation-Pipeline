@@ -1,0 +1,132 @@
+{
+  "scenario_id": "B1",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b101": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b102": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_block_must_be_null": true,
+      "expected_pipeline_warning_acknowledged": null,
+      "terraform_block_expected": null,
+      "terraform_change": null
+    }
+  },
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "instances": {
+      "i-b101": {
+        "verdict": "SUBOPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "LLM_OVERRIDDEN",
+          "rationale": "Agent 2's decision to STOP a production instance (i-b101) is too aggressive. A safer and still highly effective action is to DOWNSIZE the instance to t3.nano, which addresses the low utilization while minimizing operational risk. This action will be executed first."
+        },
+        "technical_explanation": "Instance i-b101 exhibits very low CPU utilization (P95 CPU at 3.1%) over a 7-day period, indicating significant idleness. While Agent 2 recommended stopping the instance, downsizing it to a t3.nano instance type is a more appropriate first step for a production environment. This allows the service to remain operational at a significantly reduced cost, with the option to scale up if actual demand increases. Additionally, the root block device encryption will be enabled for improved security.",
+        "cost_report": {
+          "waste_evidence": "p95_cpu (3.1%)",
+          "current_monthly_cost": 30.368,
+          "projected_monthly_cost": 3.796,
+          "monthly_savings": 26.572,
+          "annual_savings": 318.864
+        },
+        "risk_assessment": {
+          "risks": [
+            "Potential performance degradation if actual load spikes beyond t3.nano capacity.",
+            "Application instability if the workload requires more resources than a t3.nano can provide."
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "Monitor CPU and RAM utilization, application logs, and user experience for i-b101 after downsizing. Ensure the application continues to function correctly and performance remains acceptable. Verify that the encryption for the root block device is correctly applied."
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_instance\" \"frontend_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.nano\" # Downsized from t3.medium\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = true # Corrected from false\n  }\n\n  tags = {\n    Name           = \"frontend-server-01\"\n    Environment    = \"production\"\n    FinOpsAction   = \"DOWNSIZE\"\n    FinOpsReviewed = \"true\"\n  }\n}"
+      },
+      "i-b102": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Agent 2's decision to mark i-b102 as CLEAN is correct, as its resource utilization (P95 CPU 61.4%, P95 RAM 55.6%) indicates it is actively used and appropriately sized. No action is required for this instance."
+        },
+        "technical_explanation": "Instance i-b102 shows healthy CPU and RAM utilization, with P95 CPU at 61.4% and P95 RAM at 55.6%. These metrics suggest the instance is actively supporting its workload and is appropriately sized for its current demand. No cost-optimization opportunities were identified.",
+        "cost_report": {
+          "waste_evidence": "No waste pattern detected.",
+          "current_monthly_cost": 30.368,
+          "projected_monthly_cost": 30.368,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      }
+    },
+    "group_summary": "This group consists of two frontend servers. Instance i-b101, despite being in a production environment, exhibited very low CPU utilization, indicating it was significantly over-provisioned. Agent 2 recommended stopping it, but a safer and more appropriate action for a production resource is to downsize it to a t3.nano instance, which will yield substantial monthly savings while maintaining service availability. The root block device encryption will also be enabled for i-b101. Instance i-b102 is well-utilized and requires no action. The total monthly savings for this group will be $26.572, with an annual saving of $318.864.",
+    "group_cost_report": {
+      "total_monthly_savings": 26.572,
+      "total_annual_savings": 318.864,
+      "instances_actioned": 1
+    },
+    "execution_order": [
+      "i-b101"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": true,
+      "score": 1.0,
+      "details": "Correct order: ['i-b101']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 1.0,
+      "details": "The report is thorough and specific throughout: both instances are addressed with concrete metrics (P95 CPU 3.1% vs 61.4%), the override rationale is clearly tied to production-safety reasoning, cost figures are internally consistent (monthly \u00d7 12 = annual), risks are actionable and instance-specific, and all required fields are populated with non-trivial content.",
+      "breakdown": {
+        "key_facts_coverage": 5,
+        "explanation_clarity": 5,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 5,
+        "risk_communication": 5,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": false,
+      "score": 0.5,
+      "details": "verdicts correct: 1/2"
+    },
+    "terraform_validate": {
+      "name": "terraform_validate",
+      "passed": true,
+      "score": 1.0,
+      "details": "{\n  \"format_version\": \"1.0\",\n  \"valid\": true,\n  \"error_count\": 0,\n  \"warning_count\": 0,\n  \"diagnostics\": []\n}"
+    },
+    "terraform_plan": {
+      "name": "terraform_plan",
+      "passed": true,
+      "score": 1.0,
+      "details": "plan succeeded \u2014 plan.json written (5695 bytes)",
+      "skipped": false
+    }
+  },
+  "raw_output": "{\n  \"instances\": {\n    \"i-b101\": {\n      \"verdict\": \"SUBOPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"LLM_OVERRIDDEN\",\n        \"rationale\": \"Agent 2's decision to STOP a production instance (i-b101) is too aggressive. A safer and still highly effective action is to DOWNSIZE the instance to t3.nano, which addresses the low utilization while minimizing operational risk. This action will be executed first.\"\n      },\n      \"technical_explanation\": \"Instance i-b101 exhibits very low CPU utilization (P95 CPU at 3.1%) over a 7-day period, indicating significant idleness. While Agent 2 recommended stopping the instance, downsizing it to a t3.nano instance type is a more appropriate first step for a production environment. This allows the service to remain operational at a significantly reduced cost, with the option to scale up if actual demand increases. Additionally, the root block device encryption will be enabled for improved security.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p95_cpu (3.1%)\",\n        \"current_monthly_cost\": 30.368,\n        \"projected_monthly_cost\": 3.796,\n        \"monthly_savings\": 26.572,\n        \"annual_savings\": 318.864\n      },\n      \"risk_assessment\": {\n        \"risks\": [\n          \"Potential performance degradation if actual load spikes beyond t3.nano capacity.\",\n          \"Application instability if the workload requires more resources than a t3.nano can provide.\"\n        ],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Monitor CPU and RAM utilization, application logs, and user experience for i-b101 after downsizing. Ensure the application continues to function correctly and performance remains acceptable. Verify that the encryption for the root block device is correctly applied.\"\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"frontend_server_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"t3.nano\\\" # Downsized from t3.medium\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 20\\n    encrypted   = true # Corrected from false\\n  }\\n\\n  tags = {\\n    Name           = \\\"frontend-server-01\\\"\\n    Environment    = \\\"production\\\"\\n    FinOpsAction   = \\\"DOWNSIZE\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\"\n    },\n    \"i-b102\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Agent 2's decision to mark i-b102 as CLEAN is correct, as its resource utilization (P95 CPU 61.4%, P95 RAM 55.6%) indicates it is actively used and appropriately sized. No action is required for this instance.\"\n      },\n      \"technical_explanation\": \"Instance i-b102 shows healthy CPU and RAM utilization, with P95 CPU at 61.4% and P95 RAM at 55.6%. These metrics suggest the instance is actively supporting its workload and is appropriately sized for its current demand. No cost-optimization opportunities were identified.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"No waste pattern detected.\",\n        \"current_monthly_cost\": 30.368,\n        \"projected_monthly_cost\": 30.368,\n        \"monthly_savings\": 0.0,\n        \"annual_savings\": 0.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    }\n  },\n  \"group_summary\": \"This group consists of two frontend servers. Instance i-b101, despite being in a production environment, exhibited very low CPU utilization, indicating it was significantly over-provisioned. Agent 2 recommended stopping it, but a safer and more appropriate action for a production resource is to downsize it to a t3.nano instance, which will yield substantial monthly savings while maintaining service availability. The root block device encryption will also be enabled for i-b101. Instance i-b102 is well-utilized and requires no action. The total monthly savings for this group will be $26.572, with an annual saving of $318.864.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 26.572,\n    \"total_annual_savings\": 318.864,\n    \"instances_actioned\": 1\n  },\n  \"execution_order\": [\n    \"i-b101\"\n  ]\n}",
+  "latency_ms": 14835,
+  "attempts": 3
+}

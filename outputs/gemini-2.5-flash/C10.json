@@ -1,0 +1,57 @@
+{
+  "scenario_id": "C10",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "REMOVE_PROVISIONED_CONCURRENCY",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The Lambda function has zero invocations over 30 days, indicating the provisioned concurrency is entirely idle and incurring unnecessary costs."
+    },
+    "technical_explanation": "The 'order-processor-prod' Lambda function has 5 units of provisioned concurrency configured, costing $37.84 per month. However, the function has not been invoked at all in the last 30 days. Provisioned concurrency keeps Lambda functions initialized and ready to respond in milliseconds, but it incurs costs even when idle. Since there are no invocations, this capacity is completely wasted. Removing the provisioned concurrency will eliminate this idle cost without affecting the function's ability to be invoked on-demand, which will then incur costs only when actually used.",
+    "cost_report": {
+      "waste_evidence": "provisioned_concurrency=5, invocations_last_30d=0, cost_per_month=37.84",
+      "current_monthly_cost": 37.84,
+      "projected_monthly_cost": 0.0,
+      "monthly_savings": 37.84,
+      "annual_savings": 454.08
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "SCRIPT_HANDLES",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.9,
+      "details": "The report is specific, well-grounded with correct numbers, and clearly explains the idle provisioned concurrency finding, but omits explicit mention that the aws_lambda_function block remains unchanged and that data_loss_acknowledged is false (no data stored in provisioned concurrency).",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 5,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 4,
+        "risk_communication": 4,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"REMOVE_PROVISIONED_CONCURRENCY\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The Lambda function has zero invocations over 30 days, indicating the provisioned concurrency is entirely idle and incurring unnecessary costs.\"\n  },\n  \"technical_explanation\": \"The 'order-processor-prod' Lambda function has 5 units of provisioned concurrency configured, costing $37.84 per month. However, the function has not been invoked at all in the last 30 days. Provisioned concurrency keeps Lambda functions initialized and ready to respond in milliseconds, but it incurs costs even when idle. Since there are no invocations, this capacity is completely wasted. Removing the provisioned concurrency will eliminate this idle cost without affecting the function's ability to be invoked on-demand, which will then incur costs only when actually used.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"provisioned_concurrency=5, invocations_last_30d=0, cost_per_month=37.84\",\n    \"current_monthly_cost\": 37.84,\n    \"projected_monthly_cost\": 0.0,\n    \"monthly_savings\": 37.84,\n    \"annual_savings\": 454.08\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"SCRIPT_HANDLES\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 7824,
+  "attempts": 1
+}

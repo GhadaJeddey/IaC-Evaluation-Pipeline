@@ -1,0 +1,54 @@
+{
+  "scenario_id": "D2",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "DISK_FULL",
+  "model": "codestral-22b",
+  "llm_response": {
+    "root_cause": "The root volume /dev/xvda1 became full due to excessive log file growth, causing the system to fail to write to disk and ultimately crash.",
+    "root_cause_category": "DISK_FULL",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "At 13:58:21, the nginx worker process started. By 14:01:14, disk usage on /dev/xvda1 reached 89%, and logrotate warned about disk usage. By 14:03:55, disk usage increased to 94%, and the system started experiencing issues writing to disk. Nginx failed to write to its log files, and the system encountered critical errors. By 14:07:38, nginx worker processes failed to start, leading to a complete outage.",
+    "remediation": "Increase the size of the root volume to accommodate the log file growth and implement log rotation and retention policies to prevent future disk space issues.",
+    "aws_specific_notes": "The root volume is an EBS volume, and increasing its size requires a Terraform change to the root_block_device volume_size.",
+    "risk_assessment": {
+      "risks": [
+        "Increasing the volume size may require downtime if the instance is not stopped before the resize."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Verify that the instance can be stopped and restarted without affecting dependent services."
+    },
+    "terraform_suggested": true,
+    "terraform_block": "resource \"aws_instance\" \"nginx_web_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.small\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 16\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"nginx-web-server-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.84,
+      "details": "The response correctly identifies disk exhaustion on /dev/xvda1 due to log growth with accurate timestamps and error details, provides concrete remediation including a Terraform block, but the risk/trust section only vaguely mentions 'dependent services' without identifying specific downstream impacts or the nginx outage blast radius.",
+      "breakdown": {
+        "diagnosis_accuracy": 5,
+        "factual_correctness": 5,
+        "completeness": 4,
+        "trust_paragraph": 3,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=DISK_FULL  actual=DISK_FULL"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "diagnosis_accuracy=5/5"
+    }
+  },
+  "raw_output": "{\n  \"root_cause\": \"The root volume /dev/xvda1 became full due to excessive log file growth, causing the system to fail to write to disk and ultimately crash.\",\n  \"root_cause_category\": \"DISK_FULL\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"At 13:58:21, the nginx worker process started. By 14:01:14, disk usage on /dev/xvda1 reached 89%, and logrotate warned about disk usage. By 14:03:55, disk usage increased to 94%, and the system started experiencing issues writing to disk. Nginx failed to write to its log files, and the system encountered critical errors. By 14:07:38, nginx worker processes failed to start, leading to a complete outage.\",\n  \"remediation\": \"Increase the size of the root volume to accommodate the log file growth and implement log rotation and retention policies to prevent future disk space issues.\",\n  \"aws_specific_notes\": \"The root volume is an EBS volume, and increasing its size requires a Terraform change to the root_block_device volume_size.\",\n  \"risk_assessment\": {\n    \"risks\": [\"Increasing the volume size may require downtime if the instance is not stopped before the resize.\"],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Verify that the instance can be stopped and restarted without affecting dependent services.\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"nginx_web_server_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"t3.small\\\"\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 16\\n    encrypted   = false\\n  }\\n\\n  tags = {\\n    Name        = \\\"nginx-web-server-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"crash-remediation\\\"\\n  }\\n}\"\n}",
+  "latency_ms": 4275,
+  "attempts": 1
+}

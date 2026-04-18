@@ -1,0 +1,58 @@
+{
+  "manual_check": true,
+  "scenario_id": "A11",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is a standby for a primary production instance and has a high blast radius, making it a critical component for failover and disaster recovery, thus no action is recommended."
+    },
+    "technical_explanation": "The instance i-a011, named app-standby-01, is identified as a standby instance for the primary production instance app-primary-prod. Despite its low CPU utilization (p95 CPU at 2.7%), the instance's role in failover and disaster recovery scenarios, coupled with its high blast radius affecting a critical production instance, necessitates its continued operation. The redundancy and potential impact on production justify keeping the instance running, aligning with Agent 2's NEEDS_REVIEW decision due to the type E redundancy relationship.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=2.7%, p99_cpu=3.5%, max_cpu=4.9%",
+      "current_monthly_cost": 70.08,
+      "projected_monthly_cost": 70.08,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.6666666666666666,
+      "details": "The explanation correctly identifies the standby role, blast radius, and redundancy relationship, but misses explicitly calling out the Type E hard block classification and the manual declaration at 100% confidence, and risk_assessment is empty despite the high blast radius warranting enumerated failover risks.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 4,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 2,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "```json\n{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is a standby for a primary production instance and has a high blast radius, making it a critical component for failover and disaster recovery, thus no action is recommended.\"\n  },\n  \"technical_explanation\": \"The instance i-a011, named app-standby-01, is identified as a standby instance for the primary production instance app-primary-prod. Despite its low CPU utilization (p95 CPU at 2.7%), the instance's role in failover and disaster recovery scenarios, coupled with its high blast radius affecting a critical production instance, necessitates its continued operation. The redundancy and potential impact on production justify keeping the instance running, aligning with Agent 2's NEEDS_REVIEW decision due to the type E redundancy relationship.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=2.7%, p99_cpu=3.5%, max_cpu=4.9%\",\n    \"current_monthly_cost\": 70.08,\n    \"projected_monthly_cost\": 70.08,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}\n```",
+  "latency_ms": 1648,
+  "attempts": 1
+}

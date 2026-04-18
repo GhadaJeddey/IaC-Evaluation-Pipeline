@@ -1,0 +1,175 @@
+{
+  "scenario_id": "A4",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DOWNSIZE",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is oversized, with peak CPU never exceeding 20% threshold over 14 days, making downsizing to c5.large the optimal action."
+    },
+    "technical_explanation": "The instance i-a004, batch-worker-bursty-01, is currently running on a c5.xlarge instance type, but the CPU utilization is relatively low, with a peak CPU of 17.8% and p95 CPU of 9.4%, indicating that the instance is oversized. The recommended instance type, c5.large, is expected to provide sufficient resources while reducing costs. The projected CPU utilization of 18.8% and RAM utilization of 67.2% suggest that the downsized instance will be able to handle the workload.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=9.4, max_cpu=17.8, waste_per_month=$69.12",
+      "current_monthly_cost": 414.72,
+      "projected_monthly_cost": 207.36,
+      "monthly_savings": 207.36,
+      "annual_savings": 2488.32
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "LLM_GENERATED",
+    "terraform_block": "resource \"aws_instance\" \"batch_worker_bursty_01\" {\n  ami = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.large\"\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted = false\n  }\n  tags {\n    Name = \"batch-worker-bursty-01\"\n    Environment = \"production\"\n    FinOpsAction = \"DOWNSIZE\"\n    FinOpsReviewed = \"true\"\n  }\n}"
+  },
+  "validators": {
+    "terraform_validate": {
+      "name": "terraform_validate",
+      "passed": false,
+      "score": 0.0,
+      "details": "{\n  \"format_version\": \"1.0\",\n  \"valid\": false,\n  \"error_count\": 1,\n  \"warning_count\": 0,\n  \"diagnostics\": [\n    {\n      \"severity\": \"error\",\n      \"summary\": \"Unsupported block type\",\n      \"detail\": \"Blocks of type \\\"tags\\\" are not expected here. Did you mean to define argument \\\"tags\\\"? If so, use the equals sign to assign it a value.\",\n      \"range\": {\n        \"filename\": \"main.tf\",\n        \"start\": {\n          \"line\": 9,\n          \"column\": 3,\n          \"byte\": 207\n        },\n        \"end\": "
+    },
+    "terraform_plan": {
+      "name": "terraform_plan",
+      "passed": false,
+      "score": 0.0,
+      "details": "Error: Unsupported block type",
+      "skipped": false
+    },
+    "checkov": {
+      "name": "checkov",
+      "passed": true,
+      "score": 1.0,
+      "details": "No applicable Checkov checks for this resource type",
+      "raw": {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 0,
+        "checkov_version": "3.2.520"
+      }
+    },
+    "opa": {
+      "name": "opa",
+      "passed": true,
+      "score": 1.0,
+      "details": "23/23 OPA policies passed",
+      "skipped": false,
+      "raw": {
+        "entries": [
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_hardcoded_credentials",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_prevent_destroy_on_terminate",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_tag_removal",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.production_requires_tags",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_public_s3",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_resource_scope_creep",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_max_365",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_ami_change",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_volume_type",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_ec2_state",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_required",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.resize_only_changes_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.downsize_is_cheaper",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_create_replace_on_resize",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_unencrypted_volumes",
+            "successes": 3
+          }
+        ]
+      }
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7333333333333333,
+      "details": "The explanation covers peak CPU and downsize decision with specific metrics but omits the CV 1.84 variability figure and fails to explicitly frame the instance as 'bursty role' or explain why high variability still fits c5.large.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 4,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 4,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "```json\n{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DOWNSIZE\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is oversized, with peak CPU never exceeding 20% threshold over 14 days, making downsizing to c5.large the optimal action.\"\n  },\n  \"technical_explanation\": \"The instance i-a004, batch-worker-bursty-01, is currently running on a c5.xlarge instance type, but the CPU utilization is relatively low, with a peak CPU of 17.8% and p95 CPU of 9.4%, indicating that the instance is oversized. The recommended instance type, c5.large, is expected to provide sufficient resources while reducing costs. The projected CPU utilization of 18.8% and RAM utilization of 67.2% suggest that the downsized instance will be able to handle the workload.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=9.4, max_cpu=17.8, waste_per_month=$69.12\",\n    \"current_monthly_cost\": 414.72,\n    \"projected_monthly_cost\": 207.36,\n    \"monthly_savings\": 207.36,\n    \"annual_savings\": 2488.32\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"LLM_GENERATED\",\n  \"terraform_block\": {\n    \"resource\": \"aws_instance\",\n    \"batch_worker_bursty_01\": {\n      \"ami\": \"ami-0c55b159cbfafe1f0\",\n      \"instance_type\": \"c5.large\",\n      \"root_block_device\": {\n        \"volume_type\": \"gp2\",\n        \"volume_size\": 20,\n        \"encrypted\": false\n      },\n      \"tags\": {\n        \"Name\": \"batch-worker-bursty-01\",\n        \"Environment\": \"production\",\n        \"FinOpsAction\": \"DOWNSIZE\",\n        \"FinOpsReviewed\": \"true\"\n      }\n    }\n  }\n}\n```",
+  "latency_ms": 1951,
+  "attempts": 3
+}

@@ -1,0 +1,59 @@
+{
+  "scenario_id": "A7",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "codestral-22b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is a dependent secondary with a primary that has high CPU usage, and no safe fallback instance type exists, so keeping the instance is the optimal action."
+    },
+    "technical_explanation": "The instance is a dependent secondary database instance. The primary instance has a high P99 CPU usage of 87.4%, which means it is not safe to downsize or stop the instance. The instance is currently running and has no waste associated with it. Therefore, the optimal action is to keep the instance.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=87.4%, waste_per_month=$0.00",
+      "current_monthly_cost": 282.66,
+      "projected_monthly_cost": 282.66,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [
+        "High CPU usage on primary instance may impact the dependent secondary instance"
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Monitor the CPU usage of the primary instance and ensure it does not impact the dependent secondary instance"
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": false,
+      "score": 0.4666666666666667,
+      "details": "The response correctly identifies the dependent secondary relationship and the primary's P99 87.4% CPU load, but fails to cover the blast_radius on i-primary-hot, the absence of a safe fallback instance type as a blocking constraint, and critically misframes the decision as KEEP/OPTIMAL rather than NEEDS_REVIEW requiring human escalation.",
+      "breakdown": {
+        "key_facts_coverage": 2,
+        "explanation_clarity": 2,
+        "factual_grounding": 3,
+        "decision_rationale_quality": 2,
+        "risk_communication": 2,
+        "completeness": 3
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is a dependent secondary with a primary that has high CPU usage, and no safe fallback instance type exists, so keeping the instance is the optimal action.\"\n  },\n  \"technical_explanation\": \"The instance is a dependent secondary database instance. The primary instance has a high P99 CPU usage of 87.4%, which means it is not safe to downsize or stop the instance. The instance is currently running and has no waste associated with it. Therefore, the optimal action is to keep the instance.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=87.4%, waste_per_month=$0.00\",\n    \"current_monthly_cost\": 282.66,\n    \"projected_monthly_cost\": 282.66,\n    \"monthly_savings\": 0.00,\n    \"annual_savings\": 0.00\n  },\n  \"risk_assessment\": {\n    \"risks\": [\"High CPU usage on primary instance may impact the dependent secondary instance\"],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Monitor the CPU usage of the primary instance and ensure it does not impact the dependent secondary instance\"\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 2627,
+  "attempts": 1
+}
