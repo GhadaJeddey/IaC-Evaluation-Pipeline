@@ -34,7 +34,7 @@ MODELS = {
         "rpm_limit":         60,
         "rpd_limit":         1000,
         "interval_seconds":  10,
-        "max_tokens":        3500,   # Groq TPM limit is 6000 (input+output); largest prompts ~2500 tokens
+        "max_tokens":        3400,   # Groq TPM limit is 6000 (input+output); B1 input=~2535 tokens, needs headroom
     },
     "llama3.3-70b": {
         "provider":          "groq",

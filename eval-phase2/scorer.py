@@ -157,16 +157,27 @@ def run(tiers: list[str]) -> None:
             for wk, v in sorted(by_wkey.items())
         }
 
-        # Verdict correctness rate (single-instance / Mode 3 only; skip Tier B dict verdicts)
-        scorable = [
-            r for r in results.values()
-            if isinstance(r.get("expected_verdict"), str)
-            and isinstance(r.get("actual_verdict"), str)
-        ]
-        correct_verdicts = sum(
-            1 for r in scorable
-            if r["actual_verdict"] == r["expected_verdict"]
-        )
+        # Verdict correctness rate — covers all scenario types:
+        #   scalar   (Tier A / D): direct string comparison
+        #   dict     (Tier B multi-instance / Tier C multi-finding): ALL
+        #            per-instance/finding verdicts must match expected
+        def _verdict_correct(r: dict) -> bool | None:
+            exp = r.get("expected_verdict")
+            act = r.get("actual_verdict")
+            if isinstance(exp, str) and isinstance(act, str):
+                return act == exp
+            if isinstance(exp, dict) and isinstance(act, dict):
+                # exp: {id: {"expected_verdict": "OPTIMAL", ...}}
+                # act: {id: "OPTIMAL"}
+                for rid, exp_val in exp.items():
+                    expected_v = exp_val.get("expected_verdict") if isinstance(exp_val, dict) else exp_val
+                    if act.get(rid) != expected_v:
+                        return False
+                return True
+            return None  # not scorable
+
+        scorable = [r for r in results.values() if _verdict_correct(r) is not None]
+        correct_verdicts = sum(1 for r in scorable if _verdict_correct(r))
         verdict_rate = (
             round(correct_verdicts / len(scorable) * 100, 1) if scorable else 0.0
         )
@@ -184,6 +195,29 @@ def run(tiers: list[str]) -> None:
 
     out = {"leaderboard": leaderboard, "total_scenarios": len(all_scenario_ids)}
     (results_dir / "leaderboard.json").write_text(json.dumps(out, indent=2))
+
+    # Print legend
+    print("""
+┌─ SCORING LEGEND ──────────────────────────────────────────────────────────────┐
+│  Avg       — weighted average score across ALL scenarios (0–100).             │
+│              Each scenario is scored by summing validator scores × weights.    │
+│              Higher is better.                                                 │
+│                                                                                │
+│  Verdict%  — % of scenarios where the model's verdict(s) exactly match the   │
+│              expected. For single-verdict (Tier A/D): direct string match.    │
+│              For multi-instance/multi-finding (Tier B/C): ALL per-instance or │
+│              per-finding verdicts must match (scenario counted as correct only │
+│              if every sub-verdict is right).                                   │
+│                                                                                │
+│  Per-column weight profiles (scenario type → validators used):                │
+│  nl        — Tier A/B/C, no Terraform generated (nl_quality + behavior only)  │
+│  tf        — Tier A, LLM generated Terraform (adds validate/plan/checkov/opa) │
+│  multi_nl  — Tier B multi-instance, no Terraform generated                    │
+│  multi_tf  — Tier B multi-instance, LLM generated Terraform                  │
+│  c_multi_nl— Tier C multi-finding, no Terraform generated                     │
+│  c_multi_tf— Tier C multi-finding, LLM generated Terraform                   │
+│  3         — Tier D crash RCA (diagnosis_correct + nl_quality + behavior)     │
+└───────────────────────────────────────────────────────────────────────────────┘""")
 
     # Print summary table
     wkeys = ["nl", "tf", "multi_nl", "multi_tf", "c_multi_nl", "c_multi_tf", "3"]
