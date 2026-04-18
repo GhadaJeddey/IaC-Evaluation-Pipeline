@@ -1,0 +1,57 @@
+{
+  "scenario_id": "C6",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": "OPTIMAL",
+  "model": "codestral-22b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The log group already has a retention period of 30 days, which is compliant and no action is needed."
+    },
+    "technical_explanation": "The log group /aws/lambda/order-service has a retention period of 30 days, which is already compliant with the best practices for log retention. No further action is required.",
+    "cost_report": {
+      "waste_evidence": "retention_days=30, log_gb_per_month=0.31, cost_per_month=0.15",
+      "current_monthly_cost": 0.15,
+      "projected_monthly_cost": 0.15,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7333333333333333,
+      "details": "The report correctly identifies the compliant retention and zero savings, but the technical_explanation is generic and shallow \u2014 it omits explicit confirmation that the resource is CLEAN, doesn't mention the low ingestion volume (0.31 GB/month) as justification against S3 archival, and the rationale doesn't explain why no alternative action was considered.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 3,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 2,
+        "risk_communication": 5,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The log group already has a retention period of 30 days, which is compliant and no action is needed.\"\n  },\n  \"technical_explanation\": \"The log group /aws/lambda/order-service has a retention period of 30 days, which is already compliant with the best practices for log retention. No further action is required.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"retention_days=30, log_gb_per_month=0.31, cost_per_month=0.15\",\n    \"current_monthly_cost\": 0.15,\n    \"projected_monthly_cost\": 0.15,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 2554,
+  "attempts": 1
+}

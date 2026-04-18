@@ -260,7 +260,7 @@
                 },
                 "current_terraform": "resource \"aws_cloudwatch_log_group\" \"order_service_logs\" {\n  name              = \"/aws/lambda/order-service\"\n  retention_in_days = 30\n\n  tags = {\n    Name        = \"order-service-logs\"\n    Environment = \"production\"\n  }\n}",
                 "llm_evaluation": {
-                    "expected_verdict": "CLEAN",
+                    "expected_verdict": "OPTIMAL",
                     "expected_terraform_action": "NONE",
                     "terraform_must_include": null,
                     "expected_data_loss_acknowledged": false,

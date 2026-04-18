@@ -30,15 +30,15 @@ class GroqRunner(BaseRunner):
 
         payload = {
             "model":       self.model_cfg["model_id"],
-            "max_tokens":  4096,
+            "max_tokens":  self.model_cfg.get("max_tokens", 4096),
             "temperature": 0.0,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user",   "content": user_prompt},
             ],
-            # Groq supports JSON mode — enforces the model outputs valid JSON.
-            # This eliminates Strategy 2/3/4 in the parser for most responses.
-            "response_format": {"type": "json_object"},
+            # JSON mode disabled: Groq rejects responses containing HCL Terraform
+            # strings (backslashes, quotes) as invalid JSON. BaseRunner._parse_json
+            # handles extraction via 4 fallback strategies instead.
         }
 
         headers = {

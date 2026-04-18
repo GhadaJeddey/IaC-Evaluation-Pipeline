@@ -27,6 +27,7 @@ class ValidatorResult:
 
 
 def _call_judge(prompt: str) -> dict:
+    import re
     result = subprocess.run(
         ["claude", "-p", prompt],
         capture_output=True,
@@ -36,6 +37,10 @@ def _call_judge(prompt: str) -> dict:
     if result.returncode != 0:
         raise RuntimeError(f"claude -p failed (rc={result.returncode}): {result.stderr[:200]}")
     raw = result.stdout.strip()
+    # Strip markdown fences if present (claude -p sometimes wraps output)
+    match = re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+    if match:
+        raw = match.group(1).strip()
     return json.loads(raw)
 
 

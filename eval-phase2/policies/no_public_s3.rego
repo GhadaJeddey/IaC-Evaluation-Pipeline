@@ -33,7 +33,7 @@ deny contains msg if {
     config := resource.change.after
 
     # Any of these set to false means public access is possible
-    not config.block_public_acls
+    config.block_public_acls != true
     msg := sprintf(
         "aws_s3_bucket_public_access_block.%s does not block public ACLs — set block_public_acls = true",
         [resource.name],

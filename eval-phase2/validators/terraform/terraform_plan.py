@@ -13,7 +13,7 @@ import subprocess
 import logging
 import tempfile
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,9 @@ provider "aws" {
     cloudwatch     = "http://localhost:4566"
     logs           = "http://localhost:4566"
     dynamodb       = "http://localhost:4566"
-    ebs            = "http://localhost:4566"
+    lambda         = "http://localhost:4566"
+    ecr            = "http://localhost:4566"
+    rds            = "http://localhost:4566"
   }
 }
 """

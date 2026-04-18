@@ -18,7 +18,7 @@ instances[name] = config if {
 deny contains msg if {
     some name, config in instances
     disk := config.root_block_device[_]
-    not disk.encrypted
+    disk.encrypted != true
     msg := sprintf(
         "aws_instance.%s has an unencrypted root_block_device — set encrypted = true",
         [name],
@@ -29,7 +29,7 @@ deny contains msg if {
 deny contains msg if {
     some name, config in instances
     disk := config.ebs_block_device[_]
-    not disk.encrypted
+    disk.encrypted != true
     msg := sprintf(
         "aws_instance.%s has an unencrypted ebs_block_device — set encrypted = true",
         [name],
@@ -41,7 +41,7 @@ deny contains msg if {
     resource := input.resource_changes[_]
     resource.type == "aws_ebs_volume"
     resource.change.actions[_] != "delete"
-    not resource.change.after.encrypted
+    resource.change.after.encrypted != true
     msg := sprintf(
         "aws_ebs_volume.%s is not encrypted — set encrypted = true",
         [resource.name],

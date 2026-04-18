@@ -1,0 +1,62 @@
+{
+  "scenario_id": "A12",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is a critical data replica/redundancy node, and while idle, its current sizing may be necessary for failover readiness. Automated downsizing carries high risk without further architectural review."
+    },
+    "technical_explanation": "The EC2 instance `data-replica-target-01` (i-a012) is identified as an `r5.large` instance with extremely low CPU utilization (P95 CPU at 3.1%) and moderate RAM utilization (P95 RAM at 29.8%). This indicates significant over-provisioning for its current operational state. However, the instance is explicitly tagged as a `redundancy_node` and has a `replicates_to` relationship with `data-source-prod`, which is a manual relationship with high confidence. This strongly suggests it serves as a replica or failover target for a critical production data source. In such scenarios, the instance type might be chosen to match the primary instance's capacity or to handle the full production load upon failover, even if it remains largely idle during normal operations. Downsizing this instance without a thorough understanding of the disaster recovery (DR) strategy, recovery time objectives (RTO), recovery point objectives (RPO), and failover requirements could compromise system resilience, data availability, and performance upon promotion. Agent 2's decision to flag this as `NEEDS_REVIEW` due to the 'type_e_redundancy' block reason is appropriate, as a safe automated action cannot be determined without further architectural context.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=3.1%, p95_ram=29.8%",
+      "current_monthly_cost": 91.98,
+      "projected_monthly_cost": 91.98,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [
+        "Compromise of disaster recovery (DR) strategy",
+        "Reduced system resilience",
+        "Data unavailability during failover",
+        "Performance degradation if promoted to primary"
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Verify the specific requirements for `data-replica-target-01` as a redundancy node. Assess if its `r5.large` instance type is strictly necessary for failover readiness or if a smaller instance type (e.g., `r5.medium` or `t3.small` if only replication is needed) could meet the DR objectives without compromising performance or availability upon promotion. Confirm the failover process and expected load on this instance if it becomes primary."
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.8,
+      "details": "The explanation is specific, well-grounded, and covers most key facts including replicates_to, redundancy_node, and the type_e block, but the decision_summary action is 'KEEP' rather than the correct 'OPTIMAL' verdict, and the rationale doesn't clearly frame that the hard block itself is the correct and optimal outcome requiring human escalation.",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 5,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 4,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is a critical data replica/redundancy node, and while idle, its current sizing may be necessary for failover readiness. Automated downsizing carries high risk without further architectural review.\"\n  },\n  \"technical_explanation\": \"The EC2 instance `data-replica-target-01` (i-a012) is identified as an `r5.large` instance with extremely low CPU utilization (P95 CPU at 3.1%) and moderate RAM utilization (P95 RAM at 29.8%). This indicates significant over-provisioning for its current operational state. However, the instance is explicitly tagged as a `redundancy_node` and has a `replicates_to` relationship with `data-source-prod`, which is a manual relationship with high confidence. This strongly suggests it serves as a replica or failover target for a critical production data source. In such scenarios, the instance type might be chosen to match the primary instance's capacity or to handle the full production load upon failover, even if it remains largely idle during normal operations. Downsizing this instance without a thorough understanding of the disaster recovery (DR) strategy, recovery time objectives (RTO), recovery point objectives (RPO), and failover requirements could compromise system resilience, data availability, and performance upon promotion. Agent 2's decision to flag this as `NEEDS_REVIEW` due to the 'type_e_redundancy' block reason is appropriate, as a safe automated action cannot be determined without further architectural context.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=3.1%, p95_ram=29.8%\",\n    \"current_monthly_cost\": 91.98,\n    \"projected_monthly_cost\": 91.98,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Compromise of disaster recovery (DR) strategy\",\n      \"Reduced system resilience\",\n      \"Data unavailability during failover\",\n      \"Performance degradation if promoted to primary\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Verify the specific requirements for `data-replica-target-01` as a redundancy node. Assess if its `r5.large` instance type is strictly necessary for failover readiness or if a smaller instance type (e.g., `r5.medium` or `t3.small` if only replication is needed) could meet the DR objectives without compromising performance or availability upon promotion. Confirm the failover process and expected load on this instance if it becomes primary.\"\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 14365,
+  "attempts": 1
+}

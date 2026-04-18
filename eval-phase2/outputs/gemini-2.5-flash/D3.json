@@ -1,0 +1,55 @@
+{
+  "scenario_id": "D3",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "CPU_CREDITS",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "root_cause": "The EC2 instance experienced CPU throttling due to the exhaustion of CPU credits on a t3.medium burstable instance type, leading to application unresponsiveness and a StatusCheckFailed alarm.",
+    "root_cause_category": "CPU_CREDITS",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The instance 'api-gateway-t3-01' began depleting its CPU credit balance around 16:31, reaching a critical threshold by 16:33. By 16:34, the CPU credit balance hit zero, causing the instance's CPU to be throttled to its baseline performance (20%). This throttling immediately led to a massive increase in application response latency (P99 > 4.8s), an overwhelming request queue depth (8420), and subsequent connection timeouts. The application's health check started failing around 16:40 with a 504 Gateway Timeout, and by 16:44, the instance became unresponsive, triggering a StatusCheckFailed alarm.",
+    "remediation": "Change the EC2 instance type from 't3.medium' to a fixed-performance instance type like 'c5.large' to provide dedicated CPU resources and prevent future CPU throttling under sustained load.",
+    "aws_specific_notes": "T3 instances are burstable performance instances that accumulate CPU credits. When these credits are exhausted, the instance's CPU performance is throttled to its baseline, severely impacting applications requiring sustained CPU. Switching to a fixed-performance instance type (e.g., C5 or M5 family) is essential for workloads that cannot tolerate CPU throttling.",
+    "risk_assessment": {
+      "risks": [
+        "Changing the instance type requires a stop/start cycle, which will cause a brief downtime for the 'api-gateway-t3-01' instance. If this is a single point of failure, it will result in a service outage during the change.",
+        "The new instance type (c5.large) might have different performance characteristics that need to be monitored post-deployment."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "After applying the Terraform change, verify that the instance starts successfully with the new type. Monitor the application's health, response latency, throughput, and CPU utilization to ensure stability and adequate performance. Confirm that CPU credit metrics are no longer relevant or showing healthy behavior for the new instance type."
+    },
+    "terraform_suggested": true,
+    "terraform_block": "resource \"aws_instance\" \"api_gateway_t3_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.large\" # Changed from t3.medium to c5.large to prevent CPU throttling\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"api-gateway-t3-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.88,
+      "details": "The response accurately identifies CPU credit exhaustion as the root cause with precise timestamp citations and a clear remediation path, but the trust/risk section only mentions downtime for the instance itself without explicitly warning about dependent upstream/downstream services affected by the stop/start cycle.",
+      "breakdown": {
+        "diagnosis_accuracy": 5,
+        "factual_correctness": 5,
+        "completeness": 5,
+        "trust_paragraph": 3,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=CPU_CREDITS  actual=CPU_CREDITS"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "diagnosis_accuracy=5/5"
+    }
+  },
+  "raw_output": "{\n  \"root_cause\": \"The EC2 instance experienced CPU throttling due to the exhaustion of CPU credits on a t3.medium burstable instance type, leading to application unresponsiveness and a StatusCheckFailed alarm.\",\n  \"root_cause_category\": \"CPU_CREDITS\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The instance 'api-gateway-t3-01' began depleting its CPU credit balance around 16:31, reaching a critical threshold by 16:33. By 16:34, the CPU credit balance hit zero, causing the instance's CPU to be throttled to its baseline performance (20%). This throttling immediately led to a massive increase in application response latency (P99 > 4.8s), an overwhelming request queue depth (8420), and subsequent connection timeouts. The application's health check started failing around 16:40 with a 504 Gateway Timeout, and by 16:44, the instance became unresponsive, triggering a StatusCheckFailed alarm.\",\n  \"remediation\": \"Change the EC2 instance type from 't3.medium' to a fixed-performance instance type like 'c5.large' to provide dedicated CPU resources and prevent future CPU throttling under sustained load.\",\n  \"aws_specific_notes\": \"T3 instances are burstable performance instances that accumulate CPU credits. When these credits are exhausted, the instance's CPU performance is throttled to its baseline, severely impacting applications requiring sustained CPU. Switching to a fixed-performance instance type (e.g., C5 or M5 family) is essential for workloads that cannot tolerate CPU throttling.\",\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Changing the instance type requires a stop/start cycle, which will cause a brief downtime for the 'api-gateway-t3-01' instance. If this is a single point of failure, it will result in a service outage during the change.\",\n      \"The new instance type (c5.large) might have different performance characteristics that need to be monitored post-deployment.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"After applying the Terraform change, verify that the instance starts successfully with the new type. Monitor the application's health, response latency, throughput, and CPU utilization to ensure stability and adequate performance. Confirm that CPU credit metrics are no longer relevant or showing healthy behavior for the new instance type.\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"api_gateway_t3_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"c5.large\\\" # Changed from t3.medium to c5.large to prevent CPU throttling\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 20\\n    encrypted   = false\\n  }\\n\\n  tags = {\\n    Name        = \\\"api-gateway-t3-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"crash-remediation\\\"\\n  }\\n}\"\n}",
+  "latency_ms": 10606,
+  "attempts": 1
+}

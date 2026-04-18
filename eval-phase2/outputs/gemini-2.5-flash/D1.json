@@ -1,0 +1,55 @@
+{
+  "scenario_id": "D1",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "OOM_HEAP",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "root_cause": "The Java application experienced 'java.lang.OutOfMemoryError: Java heap space' and 'GC overhead limit exceeded' due to insufficient JVM heap memory during a large transaction batch, leading to application shutdown.",
+    "root_cause_category": "OOM_HEAP",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The application started a large batch of 15000 transactions. Within a minute, GC pause durations became critically long, indicating severe memory pressure. The JVM heap usage reached 98.7% of its 2GB allocated memory. This led to 'java.lang.OutOfMemoryError: Java heap space' and subsequent 'GC overhead limit exceeded' errors across multiple worker threads, causing the application to initiate shutdown and the JVM to terminate with exit code 1. The instance subsequently failed its status checks.",
+    "remediation": "Increase the EC2 instance type to 'm5.large' to provide more physical RAM (8GB vs 4GB) and fixed CPU performance. This will allow for a larger JVM heap allocation (e.g., -Xmx6g) to accommodate the memory requirements of large transaction batches, preventing OutOfMemoryErrors. Additionally, review the application's memory usage patterns to identify potential memory leaks or inefficiencies.",
+    "aws_specific_notes": "t3.medium instances are burstable and may experience CPU throttling under sustained high load, which can exacerbate memory pressure by slowing down garbage collection. Moving to a fixed-performance instance like m5.large provides more consistent CPU and memory resources suitable for critical batch processing workloads.",
+    "risk_assessment": {
+      "risks": [
+        "Changing instance type requires a brief downtime as the instance needs to be stopped and started.",
+        "There's a possibility of underlying application memory leaks that might eventually exhaust even a larger heap, requiring further code-level investigation."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "After the instance type change, monitor the application's JVM heap usage, GC activity, and overall performance, especially during subsequent large transaction batch processing. Confirm that no OutOfMemoryError exceptions occur and that the application remains stable."
+    },
+    "terraform_suggested": true,
+    "terraform_block": "resource \"aws_instance\" \"java_payments_app_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\" # Increased instance type for more RAM and fixed performance to handle large batch processing.\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 30\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"java-payments-app-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.84,
+      "details": "The response accurately identifies the OOM root cause with precise log evidence and timestamps, provides a concrete remediation with Terraform, but lacks any warning about dependent services or downstream systems affected by the outage or instance type change.",
+      "breakdown": {
+        "diagnosis_accuracy": 5,
+        "factual_correctness": 5,
+        "completeness": 5,
+        "trust_paragraph": 2,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OOM_HEAP  actual=OOM_HEAP"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "diagnosis_accuracy=5/5"
+    }
+  },
+  "raw_output": "{\n  \"root_cause\": \"The Java application experienced 'java.lang.OutOfMemoryError: Java heap space' and 'GC overhead limit exceeded' due to insufficient JVM heap memory during a large transaction batch, leading to application shutdown.\",\n  \"root_cause_category\": \"OOM_HEAP\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The application started a large batch of 15000 transactions. Within a minute, GC pause durations became critically long, indicating severe memory pressure. The JVM heap usage reached 98.7% of its 2GB allocated memory. This led to 'java.lang.OutOfMemoryError: Java heap space' and subsequent 'GC overhead limit exceeded' errors across multiple worker threads, causing the application to initiate shutdown and the JVM to terminate with exit code 1. The instance subsequently failed its status checks.\",\n  \"remediation\": \"Increase the EC2 instance type to 'm5.large' to provide more physical RAM (8GB vs 4GB) and fixed CPU performance. This will allow for a larger JVM heap allocation (e.g., -Xmx6g) to accommodate the memory requirements of large transaction batches, preventing OutOfMemoryErrors. Additionally, review the application's memory usage patterns to identify potential memory leaks or inefficiencies.\",\n  \"aws_specific_notes\": \"t3.medium instances are burstable and may experience CPU throttling under sustained high load, which can exacerbate memory pressure by slowing down garbage collection. Moving to a fixed-performance instance like m5.large provides more consistent CPU and memory resources suitable for critical batch processing workloads.\",\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Changing instance type requires a brief downtime as the instance needs to be stopped and started.\",\n      \"There's a possibility of underlying application memory leaks that might eventually exhaust even a larger heap, requiring further code-level investigation.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"After the instance type change, monitor the application's JVM heap usage, GC activity, and overall performance, especially during subsequent large transaction batch processing. Confirm that no OutOfMemoryError exceptions occur and that the application remains stable.\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"java_payments_app_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"m5.large\\\" # Increased instance type for more RAM and fixed performance to handle large batch processing.\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 30\\n    encrypted   = false\\n  }\\n\\n  tags = {\\n    Name        = \\\"java-payments-app-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"crash-remediation\\\"\\n  }\\n}\"\n}",
+  "latency_ms": 15472,
+  "attempts": 1
+}

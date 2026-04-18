@@ -1,0 +1,152 @@
+{
+  "scenario_id": "B4",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b401": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": true,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b402": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_block_must_be_null": true,
+      "expected_pipeline_warning_acknowledged": null,
+      "terraform_block_expected": null,
+      "terraform_change": null
+    },
+    "i-b403": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_block_must_be_null": true,
+      "expected_pipeline_warning_acknowledged": null,
+      "terraform_block_expected": null,
+      "terraform_change": null
+    }
+  },
+  "model": "codestral-22b",
+  "llm_response": {
+    "instances": {
+      "i-b401": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "STOP",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Instance is idle and safe to stop, with no dependencies to consider."
+        },
+        "technical_explanation": "The instance has been idle for an extended period with minimal CPU usage, making it a safe candidate for stopping.",
+        "cost_report": {
+          "waste_evidence": "P95 CPU (2.6%) below thresholds over 7 days, waste_per_month: $30.05",
+          "current_monthly_cost": 242.56,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 30.05,
+          "annual_savings": 360.6
+        },
+        "risk_assessment": {
+          "risks": [
+            "Pipeline dependency warning"
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "Verify that the inventory service can handle the temporary unavailability of the inventory-worker-01 instance."
+        },
+        "pipeline_warning_acknowledged": true,
+        "terraform_action": "SCRIPT_HANDLES",
+        "terraform_block": null
+      },
+      "i-b402": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Instance is not idle and has no waste pattern detected."
+        },
+        "technical_explanation": "The instance is actively used with no detected waste, so no action is needed.",
+        "cost_report": {
+          "waste_evidence": "No waste pattern detected.",
+          "current_monthly_cost": 592.32,
+          "projected_monthly_cost": 592.32,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      },
+      "i-b403": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Instance is not idle and has no waste pattern detected."
+        },
+        "technical_explanation": "The instance is actively used with no detected waste, so no action is needed.",
+        "cost_report": {
+          "waste_evidence": "No waste pattern detected.",
+          "current_monthly_cost": 592.32,
+          "projected_monthly_cost": 592.32,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      }
+    },
+    "group_summary": "The inventory-worker-01 instance is idle and safe to stop, while the other instances are actively used and have no waste pattern detected. The action should be taken on the inventory-worker-01 instance first to ensure the pipeline dependency is handled properly.",
+    "group_cost_report": {
+      "total_monthly_savings": 30.05,
+      "total_annual_savings": 360.6,
+      "instances_actioned": 1
+    },
+    "execution_order": [
+      "i-b401",
+      "i-b402",
+      "i-b403"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": true,
+      "score": 1.0,
+      "details": "Correct order: ['i-b401', 'i-b402', 'i-b403']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": false,
+      "score": 0.5333333333333333,
+      "details": "The report correctly identifies the idle instance and surfaces the pipeline warning, but technical explanations are generic boilerplate lacking resource-specific metrics (CPU %, instance type, stop duration), the rationale doesn't address alternatives, and the pipeline risk is named but not concretely described or actioned.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 2,
+        "factual_grounding": 3,
+        "decision_rationale_quality": 2,
+        "risk_communication": 2,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 3/3"
+    }
+  },
+  "raw_output": "{\n  \"instances\": {\n    \"i-b401\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"STOP\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Instance is idle and safe to stop, with no dependencies to consider.\"\n      },\n      \"technical_explanation\": \"The instance has been idle for an extended period with minimal CPU usage, making it a safe candidate for stopping.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"P95 CPU (2.6%) below thresholds over 7 days, waste_per_month: $30.05\",\n        \"current_monthly_cost\": 242.56,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 30.05,\n        \"annual_savings\": 360.6\n      },\n      \"risk_assessment\": {\n        \"risks\": [\"Pipeline dependency warning\"],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Verify that the inventory service can handle the temporary unavailability of the inventory-worker-01 instance.\"\n      },\n      \"pipeline_warning_acknowledged\": true,\n      \"terraform_action\": \"SCRIPT_HANDLES\",\n      \"terraform_block\": null\n    },\n    \"i-b402\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Instance is not idle and has no waste pattern detected.\"\n      },\n      \"technical_explanation\": \"The instance is actively used with no detected waste, so no action is needed.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"No waste pattern detected.\",\n        \"current_monthly_cost\": 592.32,\n        \"projected_monthly_cost\": 592.32,\n        \"monthly_savings\": 0.0,\n        \"annual_savings\": 0.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    },\n    \"i-b403\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Instance is not idle and has no waste pattern detected.\"\n      },\n      \"technical_explanation\": \"The instance is actively used with no detected waste, so no action is needed.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"No waste pattern detected.\",\n        \"current_monthly_cost\": 592.32,\n        \"projected_monthly_cost\": 592.32,\n        \"monthly_savings\": 0.0,\n        \"annual_savings\": 0.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    }\n  },\n  \"group_summary\": \"The inventory-worker-01 instance is idle and safe to stop, while the other instances are actively used and have no waste pattern detected. The action should be taken on the inventory-worker-01 instance first to ensure the pipeline dependency is handled properly.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 30.05,\n    \"total_annual_savings\": 360.6,\n    \"instances_actioned\": 1\n  },\n  \"execution_order\": [\"i-b401\", \"i-b402\", \"i-b403\"]\n}",
+  "latency_ms": 5323,
+  "attempts": 1
+}

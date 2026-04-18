@@ -1,0 +1,135 @@
+{
+  "scenario_id": "B2",
+  "tier": "tier_b",
+  "terraform_mode": 1,
+  "expected_verdict": {
+    "i-b201": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    },
+    "i-b202": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "SCRIPT_HANDLES",
+      "expected_pipeline_warning_acknowledged": false,
+      "terraform_block_expected": false,
+      "terraform_block_must_be_null": null,
+      "terraform_change": null
+    }
+  },
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "instances": {
+      "i-b201": {
+        "verdict": "SUBOPTIMAL",
+        "decision_summary": {
+          "action": "DOWNSIZE",
+          "decided_by": "LLM_OVERRIDDEN",
+          "rationale": "Downsizing is appropriate due to low CPU utilization. Additionally, the root volume should be encrypted for security best practices. This action will be executed after stopping i-b202."
+        },
+        "technical_explanation": "Agent 2 correctly identified i-b201 as oversized based on P95 CPU (8.3%) and peak CPU (19.4%) utilization. The recommended 'c5.large' instance type is projected to handle the workload with 16.6% CPU and 67.4% RAM utilization, which is optimal. However, Agent 2 missed a critical security best practice: the root EBS volume is currently unencrypted. The generated Terraform will correct this by setting 'encrypted = true' for the root block device.",
+        "cost_report": {
+          "waste_evidence": "p95_cpu (8.3%), max_cpu (19.4%) on c5.xlarge, waste_per_month ($69.12)",
+          "current_monthly_cost": 140.16,
+          "projected_monthly_cost": 70.08,
+          "monthly_savings": 70.08,
+          "annual_savings": 840.96
+        },
+        "risk_assessment": {
+          "risks": [
+            "Temporary service interruption during instance type change.",
+            "Potential performance degradation if the new instance type proves insufficient for peak loads (though metrics suggest it will be adequate)."
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "Monitor application performance, CPU, and RAM utilization closely for 24-48 hours after the instance type change to ensure stability and adequate capacity."
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_instance\" \"api_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.large\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"api-server-01\"\n    Environment = \"production\"\n    FinOpsAction = \"DOWNSIZE\"\n    FinOpsReviewed = \"true\"\n  }\n}"
+      },
+      "i-b202": {
+        "verdict": "SUBOPTIMAL",
+        "decision_summary": {
+          "action": "STOP",
+          "decided_by": "LLM_OVERRIDDEN",
+          "rationale": "The instance shows very low CPU utilization, indicating it is idle. Stopping it will eliminate ongoing compute costs. Additionally, the root volume should be encrypted for security best practices. This action will be executed first."
+        },
+        "technical_explanation": "Agent 2 correctly identified i-b202 as idle based on P95 CPU (2.8%) utilization. Stopping the instance is the appropriate cost-saving action. However, Agent 2 missed a critical security best practice: the root EBS volume is currently unencrypted. The generated Terraform will correct this by setting 'encrypted = true' for the root block device, in addition to creating an 'aws_ec2_instance_state' resource to stop the instance.",
+        "cost_report": {
+          "waste_evidence": "p95_cpu (2.8%), waste_per_month ($30.05)",
+          "current_monthly_cost": 30.37,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 30.37,
+          "annual_savings": 364.44
+        },
+        "risk_assessment": {
+          "risks": [
+            "Service disruption if 'api-server-02' is a critical component of the production API service and not truly redundant or idle."
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "Confirm with the application team that 'api-server-02' is indeed not required for the production API service or is part of a redundant setup where its absence won't impact availability. Monitor application health and logs after stopping."
+        },
+        "pipeline_warning_acknowledged": false,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_instance\" \"api_server_02\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"api-server-02\"\n    Environment = \"production\"\n    FinOpsAction = \"STOP\"\n    FinOpsReviewed = \"true\"\n  }\n}\n\nresource \"aws_ec2_instance_state\" \"api_server_02_stop\" {\n  instance_id = aws_instance.api_server_02.id\n  state       = \"stopped\"\n}"
+      }
+    },
+    "group_summary": "Two EC2 instances within the B2 API Service group have been identified for cost optimization and security improvements. 'api-server-02' (i-b202) will be stopped due to idleness, saving $30.37 monthly. Subsequently, 'api-server-01' (i-b201) will be downsized from 'c5.xlarge' to 'c5.large' due to being oversized, saving an additional $70.08 monthly. Both instances will also have their root EBS volumes encrypted as a critical security best practice, which was not addressed by Agent 2. The total estimated monthly savings for this group is $100.45, leading to annual savings of $1,205.38.",
+    "group_cost_report": {
+      "total_monthly_savings": 100.45,
+      "total_annual_savings": 1205.38,
+      "instances_actioned": 2
+    },
+    "execution_order": [
+      "i-b202",
+      "i-b201"
+    ]
+  },
+  "validators": {
+    "execution_order": {
+      "name": "execution_order",
+      "passed": true,
+      "score": 1.0,
+      "details": "Correct order: ['i-b202', 'i-b201']"
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.9,
+      "details": "The report is highly specific, citing concrete CPU percentages, instance types, and cost figures for each instance, with clear execution ordering and group aggregation, though the waste_evidence for i-b202 shows a minor inconsistency (waste_per_month $30.05 vs monthly_savings $30.37).",
+      "breakdown": {
+        "key_facts_coverage": 5,
+        "explanation_clarity": 5,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 4,
+        "risk_communication": 4,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": false,
+      "score": 0.0,
+      "details": "verdicts correct: 0/2"
+    },
+    "terraform_validate": {
+      "name": "terraform_validate",
+      "passed": true,
+      "score": 1.0,
+      "details": "{\n  \"format_version\": \"1.0\",\n  \"valid\": true,\n  \"error_count\": 0,\n  \"warning_count\": 0,\n  \"diagnostics\": []\n}"
+    },
+    "terraform_plan": {
+      "name": "terraform_plan",
+      "passed": false,
+      "score": 0.0,
+      "details": "Error: Unsupported attribute",
+      "skipped": false
+    }
+  },
+  "raw_output": "{\n  \"instances\": {\n    \"i-b201\": {\n      \"verdict\": \"SUBOPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DOWNSIZE\",\n        \"decided_by\": \"LLM_OVERRIDDEN\",\n        \"rationale\": \"Downsizing is appropriate due to low CPU utilization. Additionally, the root volume should be encrypted for security best practices. This action will be executed after stopping i-b202.\"\n      },\n      \"technical_explanation\": \"Agent 2 correctly identified i-b201 as oversized based on P95 CPU (8.3%) and peak CPU (19.4%) utilization. The recommended 'c5.large' instance type is projected to handle the workload with 16.6% CPU and 67.4% RAM utilization, which is optimal. However, Agent 2 missed a critical security best practice: the root EBS volume is currently unencrypted. The generated Terraform will correct this by setting 'encrypted = true' for the root block device.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p95_cpu (8.3%), max_cpu (19.4%) on c5.xlarge, waste_per_month ($69.12)\",\n        \"current_monthly_cost\": 140.16,\n        \"projected_monthly_cost\": 70.08,\n        \"monthly_savings\": 70.08,\n        \"annual_savings\": 840.96\n      },\n      \"risk_assessment\": {\n        \"risks\": [\n          \"Temporary service interruption during instance type change.\",\n          \"Potential performance degradation if the new instance type proves insufficient for peak loads (though metrics suggest it will be adequate).\"\n        ],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Monitor application performance, CPU, and RAM utilization closely for 24-48 hours after the instance type change to ensure stability and adequate capacity.\"\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"api_server_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"c5.large\\\"\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 20\\n    encrypted   = true\\n  }\\n\\n  tags = {\\n    Name        = \\\"api-server-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"DOWNSIZE\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\"\n    },\n    \"i-b202\": {\n      \"verdict\": \"SUBOPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"STOP\",\n        \"decided_by\": \"LLM_OVERRIDDEN\",\n        \"rationale\": \"The instance shows very low CPU utilization, indicating it is idle. Stopping it will eliminate ongoing compute costs. Additionally, the root volume should be encrypted for security best practices. This action will be executed first.\"\n      },\n      \"technical_explanation\": \"Agent 2 correctly identified i-b202 as idle based on P95 CPU (2.8%) utilization. Stopping the instance is the appropriate cost-saving action. However, Agent 2 missed a critical security best practice: the root EBS volume is currently unencrypted. The generated Terraform will correct this by setting 'encrypted = true' for the root block device, in addition to creating an 'aws_ec2_instance_state' resource to stop the instance.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"p95_cpu (2.8%), waste_per_month ($30.05)\",\n        \"current_monthly_cost\": 30.37,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 30.37,\n        \"annual_savings\": 364.44\n      },\n      \"risk_assessment\": {\n        \"risks\": [\n          \"Service disruption if 'api-server-02' is a critical component of the production API service and not truly redundant or idle.\"\n        ],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Confirm with the application team that 'api-server-02' is indeed not required for the production API service or is part of a redundant setup where its absence won't impact availability. Monitor application health and logs after stopping.\"\n      },\n      \"pipeline_warning_acknowledged\": false,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"api_server_02\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"t3.medium\\\"\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 20\\n    encrypted   = true\\n  }\\n\\n  tags = {\\n    Name        = \\\"api-server-02\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"STOP\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\\n\\nresource \\\"aws_ec2_instance_state\\\" \\\"api_server_02_stop\\\" {\\n  instance_id = aws_instance.api_server_02.id\\n  state       = \\\"stopped\\\"\\n}\"\n    }\n  },\n  \"group_summary\": \"Two EC2 instances within the B2 API Service group have been identified for cost optimization and security improvements. 'api-server-02' (i-b202) will be stopped due to idleness, saving $30.37 monthly. Subsequently, 'api-server-01' (i-b201) will be downsized from 'c5.xlarge' to 'c5.large' due to being oversized, saving an additional $70.08 monthly. Both instances will also have their root EBS volumes encrypted as a critical security best practice, which was not addressed by Agent 2. The total estimated monthly savings for this group is $100.45, leading to annual savings of $1,205.38.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 100.45,\n    \"total_annual_savings\": 1205.38,\n    \"instances_actioned\": 2\n  },\n  \"execution_order\": [\n    \"i-b202\",\n    \"i-b201\"\n  ]\n}",
+  "latency_ms": 33695,
+  "attempts": 1
+}

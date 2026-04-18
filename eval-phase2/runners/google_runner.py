@@ -52,7 +52,7 @@ class GoogleRunner(BaseRunner):
             ],
             "generationConfig": {
                 "temperature":      0.0,
-                "maxOutputTokens":  4096,
+                "maxOutputTokens":  16384,
                 # Request JSON output — Gemini will constrain its output to valid JSON.
                 # Unlike OpenAI-style response_format, this is a MIME type string.
                 "responseMimeType": "application/json",
@@ -85,7 +85,15 @@ class GoogleRunner(BaseRunner):
 
         # Navigate the nested response structure
         try:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+            candidate = data["candidates"][0]
+            finish_reason = candidate.get("finishReason", "STOP")
+            text = candidate["content"]["parts"][0]["text"]
+            if finish_reason == "MAX_TOKENS":
+                raise RuntimeError(
+                    f"Gemini response truncated (MAX_TOKENS); got {len(text)} chars. "
+                    "Increase maxOutputTokens or shorten the prompt."
+                )
+            return text
         except (KeyError, IndexError) as exc:
             # finishReason = SAFETY or other non-STOP reasons produce empty candidates
             finish = (

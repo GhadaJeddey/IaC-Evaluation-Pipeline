@@ -1,0 +1,340 @@
+{
+  "scenario_id": "CM2",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": {
+    "/aws/lambda/checkout-service": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "LLM_GENERATED",
+      "terraform_must_include": [
+        "aws_cloudwatch_log_group",
+        "retention_in_days"
+      ],
+      "expected_data_loss_acknowledged": false,
+      "key_facts": [
+        "log group /aws/lambda/checkout-service has no retention_in_days set",
+        "0.63 GB/month ingestion at $0.31/month \u2014 adding retention saves ongoing cost",
+        "fix: add retention_in_days to existing aws_cloudwatch_log_group block",
+        "data_loss_acknowledged = false \u2014 retention does not delete existing logs immediately"
+      ]
+    },
+    "nat-0c1d2e3f4a5b6c701": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "LLM_GENERATED",
+      "terraform_must_include": [
+        "aws_nat_gateway",
+        "aws_eip",
+        "lifecycle"
+      ],
+      "expected_data_loss_acknowledged": false,
+      "key_facts": [
+        "NAT Gateway nat-gw-legacy-batch processed only 4 KB/day over 21 days \u2014 confirmed idle",
+        "$33.48/month wasted on fixed NAT Gateway charge",
+        "NAT Gateways are stateless \u2014 data_loss_acknowledged = false",
+        "lifecycle prevent_destroy = false required on both aws_nat_gateway and aws_eip",
+        "associated EIP eipalloc-0c1d2e3f4a5b6c701 must also be released"
+      ]
+    }
+  },
+  "model": "codestral-22b",
+  "llm_response": {
+    "findings": {
+      "/aws/lambda/checkout-service": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "SET_RETENTION",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Setting a retention policy is the correct action to prevent indefinite log accumulation."
+        },
+        "technical_explanation": "The CloudWatch log group for the checkout-service Lambda function has no retention policy, which means logs will accumulate indefinitely. Setting a retention policy is the standard practice to prevent excessive log storage costs and potential performance issues.",
+        "cost_report": {
+          "waste_evidence": "Logs accumulate indefinitely at $0.31/month.",
+          "current_monthly_cost": 0.31,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 0.31,
+          "annual_savings": 3.72
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "data_loss_acknowledged": false,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_cloudwatch_log_group\" \"checkout_service_logs\" {\n  name              = \"/aws/lambda/checkout-service\"\n  retention_in_days = 30\n\n  tags = {\n    Name        = \"checkout-service-logs\"\n    Environment = \"production\"\n    FinOpsAction = \"SET_RETENTION\"\n    FinOpsReviewed = \"true\"\n  }\n}"
+      },
+      "nat-0c1d2e3f4a5b6c701": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DESTROY",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Destroying the NAT Gateway and associated EIP is the correct action to eliminate idle resource costs."
+        },
+        "technical_explanation": "The NAT Gateway nat-gw-legacy-batch has been idle for 21 days, processing only 4 KB/day on average. NAT Gateways are stateless and can be safely destroyed when not in use. The associated EIP should also be released to avoid unnecessary costs.",
+        "cost_report": {
+          "waste_evidence": "NAT Gateway processed 4 KB/day average over 21 days \u2014 idle for 3 weeks.",
+          "current_monthly_cost": 33.48,
+          "projected_monthly_cost": null,
+          "monthly_savings": 33.48,
+          "annual_savings": 401.76
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": true,
+          "verification_steps": "Verify that no resources in the VPC rely on this NAT Gateway for outbound internet access."
+        },
+        "data_loss_acknowledged": false,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_eip\" \"nat_gw_legacy_eip\" {\n  lifecycle {\n    prevent_destroy = false\n  }\n\n  tags = {\n    Name = \"nat-gw-legacy-eip\"\n    FinOpsAction = \"DESTROY\"\n    FinOpsReviewed = \"true\"\n  }\n}\n\nresource \"aws_nat_gateway\" \"nat_gw_legacy_batch\" {\n  lifecycle {\n    prevent_destroy = false\n  }\n\n  tags = {\n    Name        = \"nat-gw-legacy-batch\"\n    Environment = \"production\"\n    FinOpsAction = \"DESTROY\"\n    FinOpsReviewed = \"true\"\n  }\n}"
+      }
+    },
+    "group_summary": "The findings include a CloudWatch log group without a retention policy and an idle NAT Gateway. Setting a retention policy for the log group will prevent indefinite log accumulation, and destroying the NAT Gateway and associated EIP will eliminate idle resource costs. The total monthly savings are $33.79, and the total annual savings are $405.48. The findings_actioned count is 2.",
+    "group_cost_report": {
+      "total_monthly_savings": 33.79,
+      "total_annual_savings": 405.48,
+      "findings_actioned": 2
+    }
+  },
+  "validators": {
+    "terraform_validate": {
+      "name": "terraform_validate",
+      "passed": true,
+      "score": 1.0,
+      "details": "Passed (undeclared-reference errors ignored \u2014 missing sibling resources are expected in eval workspace)"
+    },
+    "terraform_plan": {
+      "name": "terraform_plan",
+      "passed": false,
+      "score": 0.0,
+      "details": "Error: Missing required argument",
+      "skipped": false
+    },
+    "checkov": {
+      "name": "checkov",
+      "passed": false,
+      "score": 0.0,
+      "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_338'] \u2014 resources: ['aws_cloudwatch_log_group.checkout_service_logs']",
+      "raw": {
+        "check_type": "terraform",
+        "results": {
+          "passed_checks": [],
+          "failed_checks": [
+            {
+              "check_id": "CKV_AWS_338",
+              "bc_check_id": "BC_AWS_LOGGING_46",
+              "check_name": "Ensure CloudWatch log groups retains logs for at least 1 year",
+              "check_result": {
+                "result": "FAILED",
+                "evaluated_keys": [
+                  "retention_in_days"
+                ]
+              },
+              "code_block": [
+                [
+                  1,
+                  "resource \"aws_cloudwatch_log_group\" \"checkout_service_logs\" {\n"
+                ],
+                [
+                  2,
+                  "  name              = \"/aws/lambda/checkout-service\"\n"
+                ],
+                [
+                  3,
+                  "  retention_in_days = 30\n"
+                ],
+                [
+                  4,
+                  "\n"
+                ],
+                [
+                  5,
+                  "  tags = {\n"
+                ],
+                [
+                  6,
+                  "    Name        = \"checkout-service-logs\"\n"
+                ],
+                [
+                  7,
+                  "    Environment = \"production\"\n"
+                ],
+                [
+                  8,
+                  "    FinOpsAction = \"SET_RETENTION\"\n"
+                ],
+                [
+                  9,
+                  "    FinOpsReviewed = \"true\"\n"
+                ],
+                [
+                  10,
+                  "  }\n"
+                ],
+                [
+                  11,
+                  "}\n"
+                ]
+              ],
+              "file_path": "/main.tf",
+              "file_abs_path": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/main.tf",
+              "repo_file_path": "/tf_workspace/main.tf",
+              "file_line_range": [
+                1,
+                11
+              ],
+              "resource": "aws_cloudwatch_log_group.checkout_service_logs",
+              "evaluations": null,
+              "check_class": "checkov.terraform.checks.resource.aws.CloudWatchLogGroupRetentionYear",
+              "fixed_definition": null,
+              "entity_tags": {
+                "Environment": "production",
+                "FinOpsAction": "SET_RETENTION",
+                "FinOpsReviewed": true,
+                "Name": "checkout-service-logs"
+              },
+              "caller_file_path": null,
+              "caller_file_line_range": null,
+              "resource_address": null,
+              "severity": null,
+              "bc_category": null,
+              "benchmarks": null,
+              "description": null,
+              "short_description": null,
+              "vulnerability_details": null,
+              "connected_node": null,
+              "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-338",
+              "details": [],
+              "check_len": null,
+              "definition_context_file_path": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/main.tf"
+            }
+          ],
+          "skipped_checks": [],
+          "parsing_errors": []
+        },
+        "summary": {
+          "passed": 0,
+          "failed": 1,
+          "skipped": 0,
+          "parsing_errors": 0,
+          "resource_count": 3,
+          "checkov_version": "3.2.520"
+        },
+        "url": "Add an api key '--bc-api-key <api-key>' to see more detailed insights via https://bridgecrew.cloud"
+      }
+    },
+    "opa": {
+      "name": "opa",
+      "passed": true,
+      "score": 1.0,
+      "details": "23/23 OPA policies passed",
+      "skipped": false,
+      "raw": {
+        "entries": [
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.downsize_is_cheaper",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_resource_scope_creep",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_ec2_state",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_public_s3",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_unencrypted_volumes",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_tag_removal",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.production_requires_tags",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_required",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_prevent_destroy_on_terminate",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.resize_only_changes_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_max_365",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_ami_change",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_hardcoded_credentials",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_volume_type",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_create_replace_on_resize",
+            "successes": 1
+          }
+        ]
+      }
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.6333333333333333,
+      "details": "The report covers core facts and uses specific metrics for the NAT Gateway, but misses several key details: the log group resource name (/aws/lambda/checkout-service) and the 0.63 GB/month ingestion figure are absent from the CloudWatch explanation, the rationale for both findings is generic rather than tied to the actual data, the lifecycle prevent_destroy requirement on aws_nat_gateway and aws_eip is unmentioned, and the CloudWatch savings figure ($0.31) conflates ingestion cost with retention savings without acknowledging that retention doesn't delete existing logs.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 4,
+        "factual_grounding": 3,
+        "decision_rationale_quality": 2,
+        "risk_communication": 3,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 2/2"
+    }
+  },
+  "raw_output": "{\n  \"findings\": {\n    \"/aws/lambda/checkout-service\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"SET_RETENTION\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Setting a retention policy is the correct action to prevent indefinite log accumulation.\"\n      },\n      \"technical_explanation\": \"The CloudWatch log group for the checkout-service Lambda function has no retention policy, which means logs will accumulate indefinitely. Setting a retention policy is the standard practice to prevent excessive log storage costs and potential performance issues.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"Logs accumulate indefinitely at $0.31/month.\",\n        \"current_monthly_cost\": 0.31,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 0.31,\n        \"annual_savings\": 3.72\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"data_loss_acknowledged\": false,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_cloudwatch_log_group\\\" \\\"checkout_service_logs\\\" {\\n  name              = \\\"/aws/lambda/checkout-service\\\"\\n  retention_in_days = 30\\n\\n  tags = {\\n    Name        = \\\"checkout-service-logs\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"SET_RETENTION\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\"\n    },\n    \"nat-0c1d2e3f4a5b6c701\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DESTROY\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Destroying the NAT Gateway and associated EIP is the correct action to eliminate idle resource costs.\"\n      },\n      \"technical_explanation\": \"The NAT Gateway nat-gw-legacy-batch has been idle for 21 days, processing only 4 KB/day on average. NAT Gateways are stateless and can be safely destroyed when not in use. The associated EIP should also be released to avoid unnecessary costs.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"NAT Gateway processed 4 KB/day average over 21 days \u2014 idle for 3 weeks.\",\n        \"current_monthly_cost\": 33.48,\n        \"projected_monthly_cost\": null,\n        \"monthly_savings\": 33.48,\n        \"annual_savings\": 401.76\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Verify that no resources in the VPC rely on this NAT Gateway for outbound internet access.\"\n      },\n      \"data_loss_acknowledged\": false,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_eip\\\" \\\"nat_gw_legacy_eip\\\" {\\n  lifecycle {\\n    prevent_destroy = false\\n  }\\n\\n  tags = {\\n    Name = \\\"nat-gw-legacy-eip\\\"\\n    FinOpsAction = \\\"DESTROY\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\\n\\nresource \\\"aws_nat_gateway\\\" \\\"nat_gw_legacy_batch\\\" {\\n  lifecycle {\\n    prevent_destroy = false\\n  }\\n\\n  tags = {\\n    Name        = \\\"nat-gw-legacy-batch\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"DESTROY\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\"\n    }\n  },\n  \"group_summary\": \"The findings include a CloudWatch log group without a retention policy and an idle NAT Gateway. Setting a retention policy for the log group will prevent indefinite log accumulation, and destroying the NAT Gateway and associated EIP will eliminate idle resource costs. The total monthly savings are $33.79, and the total annual savings are $405.48. The findings_actioned count is 2.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 33.79,\n    \"total_annual_savings\": 405.48,\n    \"findings_actioned\": 2\n  }\n}",
+  "latency_ms": 6346,
+  "attempts": 1
+}

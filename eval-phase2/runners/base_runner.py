@@ -21,6 +21,117 @@ logger = logging.getLogger(__name__)
 
 class BaseRunner(ABC):
 
+    @staticmethod
+    def _fix_triple_quoted_strings(text: str) -> str:
+        """Replace JSON-invalid triple-quoted strings with properly escaped single-quoted strings."""
+        import re
+        def _replace(m):
+            inner = m.group(1)
+            # escape any unescaped double quotes inside, then wrap in double quotes
+            inner = inner.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
+            return f'"{inner}"'
+        return re.sub(r'"""([\s\S]*?)"""', _replace, text)
+
+    @staticmethod
+    def _eval_inline_math(text: str) -> str:
+        """Replace arithmetic expressions (e.g. 0.0208 * 730, 730 * (0.126 - 0.063)) with their value."""
+        import re
+        _NUM = r'\d+\.?\d*'
+        _EXPR = rf'(?:{_NUM}|\({_NUM}\s*[*\/+\-]\s*{_NUM}\))'
+        pattern = rf'({_EXPR})\s*([*\/+\-])\s*({_EXPR})'
+        def _replace(m):
+            try:
+                def _val(s):
+                    s = s.strip()
+                    if s.startswith('(') and s.endswith(')'):
+                        inner = s[1:-1]
+                        a2, op2, b2 = re.split(r'\s*([*\/+\-])\s*', inner, maxsplit=1)
+                        return {"*": float(a2)*float(b2), "/": float(a2)/float(b2),
+                                "+": float(a2)+float(b2), "-": float(a2)-float(b2)}[op2]
+                    return float(s)
+                a, op, b = _val(m.group(1)), m.group(2), _val(m.group(3))
+                result = {"*": a*b, "/": a/b, "+": a+b, "-": a-b}[op]
+                return str(int(result)) if result == int(result) else f"{result:.4f}".rstrip('0').rstrip('.')
+            except Exception:
+                return m.group(0)
+        # iterate until no more matches (handles chained expressions)
+        prev = None
+        while prev != text:
+            prev = text
+            text = re.sub(pattern, _replace, text)
+        return text
+
+    @staticmethod
+    def _remove_trailing_commas(text: str) -> str:
+        """Remove trailing commas before closing braces/brackets outside strings."""
+        out: list[str] = []
+        in_str = False
+        escape = False
+        i = 0
+        n = len(text)
+
+        while i < n:
+            ch = text[i]
+
+            if escape:
+                out.append(ch)
+                escape = False
+                i += 1
+                continue
+
+            if ch == "\\" and in_str:
+                out.append(ch)
+                escape = True
+                i += 1
+                continue
+
+            if ch == '"':
+                out.append(ch)
+                in_str = not in_str
+                i += 1
+                continue
+
+            if not in_str and ch == ",":
+                j = i + 1
+                while j < n and text[j] in " \t\r\n":
+                    j += 1
+                if j < n and text[j] in "]}":
+                    i += 1
+                    continue
+
+            out.append(ch)
+            i += 1
+
+        return "".join(out)
+
+    @classmethod
+    def _try_parse_with_tolerance(cls, candidate: str) -> tuple[Any, str | None]:
+        """
+        Best-effort parse for near-valid JSON emitted by some models.
+        Keeps strict json.loads first, then applies minimal safe normalizations.
+        """
+        candidate = candidate.strip().lstrip("\ufeff")
+
+        try:
+            return json.loads(candidate), None
+        except json.JSONDecodeError:
+            pass
+
+        normalized = cls._fix_triple_quoted_strings(candidate)
+        normalized = (
+            normalized.replace("\u201c", '"')
+            .replace("\u201d", '"')
+            .replace("\u2018", "'")
+            .replace("\u2019", "'")
+        )
+        normalized = cls._eval_inline_math(normalized)
+        normalized = cls._remove_trailing_commas(normalized)
+
+        try:
+            return json.loads(normalized), None
+        except json.JSONDecodeError as exc:
+            return None, str(exc)
+
     def __init__(self, model_cfg: dict, api_key: str):
         """
         model_cfg : one entry from the MODELS dict in config.py
@@ -178,21 +289,46 @@ class BaseRunner(ABC):
         if not text or not text.strip():
             return None, "Empty response from model"
 
-        stripped = text.strip()
+        stripped = text.strip().lstrip("\ufeff")
+
+        # Strip <think>...</think> blocks emitted by reasoning models (e.g. qwen3)
+        # before any JSON extraction — the thinking block may contain JSON fragments
+        # that would be mistakenly picked up by the strategies below.
+        stripped = re.sub(r"<think>[\s\S]*?</think>", "", stripped, flags=re.IGNORECASE).strip()
 
         # Strategy 1: direct parse
-        try:
-            return json.loads(stripped), None
-        except json.JSONDecodeError:
-            pass
+        parsed, err = BaseRunner._try_parse_with_tolerance(stripped)
+        if err is None:
+            return parsed, None
 
         # Strategy 2 & 3: fenced code block
         fenced = re.search(r"```(?:json)?\s*\n?([\s\S]+?)```", stripped)
         if fenced:
+            parsed, err = BaseRunner._try_parse_with_tolerance(fenced.group(1).strip())
+            if err is None:
+                return parsed, None
+
+        # Strategy 3b: line-oriented fence unwrap (handles fence variants with spaces/tokens)
+        if stripped.startswith("```"):
+            lines = stripped.splitlines()
+            if len(lines) >= 2:
+                body_lines = lines[1:]
+                if body_lines and body_lines[-1].strip().startswith("```"):
+                    body_lines = body_lines[:-1]
+                parsed, err = BaseRunner._try_parse_with_tolerance("\n".join(body_lines))
+                if err is None:
+                    return parsed, None
+
+        # Strategy 3c: parse first JSON object from the text when trailing prose exists
+        decoder = json.JSONDecoder()
+        for start in (0, stripped.find("{"), stripped.find("[")):
+            if start is None or start < 0:
+                continue
             try:
-                return json.loads(fenced.group(1).strip()), None
+                obj, _ = decoder.raw_decode(stripped, start)
+                return obj, None
             except json.JSONDecodeError:
-                pass
+                continue
 
         # Strategy 4: find first complete { ... } block in prose
         brace_start = stripped.find("{")
@@ -218,12 +354,13 @@ class BaseRunner(ABC):
                     depth -= 1
                     if depth == 0:
                         candidate = stripped[brace_start : i + 1]
-                        try:
-                            return json.loads(candidate), None
-                        except json.JSONDecodeError:
-                            break
+                        parsed, err = BaseRunner._try_parse_with_tolerance(candidate)
+                        if err is None:
+                            return parsed, None
+                        break
 
         return None, (
             f"Could not extract valid JSON from response "
             f"(length={len(text)}, preview={text[:120]!r})"
         )
+

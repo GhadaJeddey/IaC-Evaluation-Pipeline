@@ -1,0 +1,241 @@
+{
+  "scenario_id": "CM3",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": {
+    "/aws/lambda/user-auth": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "NONE",
+      "terraform_must_include": null,
+      "expected_data_loss_acknowledged": false,
+      "key_facts": [
+        "retention_in_days = 14 is already set \u2014 resource is compliant",
+        "terraform_action must be NONE \u2014 do NOT generate any Terraform for this finding",
+        "terraform_block must be null",
+        "ingestion volume is low (0.25 GB/month) \u2014 S3 archival not warranted"
+      ]
+    },
+    "backend-service-ecr": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "LLM_GENERATED",
+      "terraform_must_include": [
+        "aws_ecr_lifecycle_policy",
+        "untaggedStatus",
+        "tagStatus"
+      ],
+      "expected_data_loss_acknowledged": true,
+      "key_facts": [
+        "368 untagged images accumulating \u2014 no lifecycle policy set",
+        "61.7 GB total; lifecycle reduces cost from $6.17 to ~$0.44/month",
+        "aws_ecr_lifecycle_policy must be a separate resource (not inline)",
+        "rules: expire untagged images after 1 day, cap tagged images at 30",
+        "data_loss_acknowledged = true \u2014 existing untagged images will be deleted",
+        "aws_ecr_repository block must remain unchanged"
+      ]
+    }
+  },
+  "model": "codestral-22b",
+  "llm_response": {
+    "findings": {
+      "/aws/lambda/user-auth": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "NONE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "The log group already has a retention period of 14 days, which is compliant and no action is needed."
+        },
+        "technical_explanation": "The log group /aws/lambda/user-auth has a retention period of 14 days, which is already compliant with the best practices. No action is required.",
+        "cost_report": {
+          "waste_evidence": "retention_days = 14, estimated_cost_per_month = 0.12",
+          "current_monthly_cost": 0.12,
+          "projected_monthly_cost": 0.12,
+          "monthly_savings": 0.0,
+          "annual_savings": 0.0
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "data_loss_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      },
+      "backend-service-ecr": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "SET_LIFECYCLE",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Adding a lifecycle policy to the ECR repository will help manage untagged images and save costs."
+        },
+        "technical_explanation": "The ECR repository backend-service has 368 untagged images, which can be managed by adding a lifecycle policy. This will help in reducing the storage costs and maintaining a clean repository.",
+        "cost_report": {
+          "waste_evidence": "untagged_images = 368, total_size_gb = 61.7, estimated_savings_per_month = 5.73",
+          "current_monthly_cost": 6.17,
+          "projected_monthly_cost": 0.44,
+          "monthly_savings": 5.73,
+          "annual_savings": 68.76
+        },
+        "risk_assessment": {
+          "risks": [
+            "Potential data loss if untagged images are deleted"
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "Verify that the lifecycle policy does not delete any critical images. Ensure that the tagged images are not affected by the policy."
+        },
+        "data_loss_acknowledged": true,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_ecr_lifecycle_policy\" \"backend_service_lifecycle\" {\n  repository = aws_ecr_repository.backend_service.name\n  policy     = <<EOF\n{\n  \"rules\": [\n    {\n      \"rulePriority\": 1,\n      \"description\": \"Expire untagged images after 1 day\",\n      \"selection\": {\n        \"tagStatus\": \"untagged\",\n        \"countType\": \"sinceImagePushed\",\n        \"countUnit\": \"days\",\n        \"countNumber\": 1\n      },\n      \"action\": {\n        \"type\": \"expire\"\n      }\n    },\n    {\n      \"rulePriority\": 2,\n      \"description\": \"Keep last 30 tagged images\",\n      \"selection\": {\n        \"tagStatus\": \"tagged\",\n        \"tagPrefixList\": [\"v\"],\n        \"countType\": \"imageCountMoreThan\",\n        \"countNumber\": 30\n      },\n      \"action\": {\n        \"type\": \"expire\"\n      }\n    }\n  ]\n}\nEOF\n\n  tags = {\n    Name        = \"backend-service-lifecycle\"\n    Environment = \"production\"\n    FinOpsAction = \"SET_LIFECYCLE\"\n    FinOpsReviewed = \"true\"\n  }\n}"
+      }
+    },
+    "group_summary": "The log group /aws/lambda/user-auth is already compliant with the retention policy. The ECR repository backend-service can benefit from a lifecycle policy to manage untagged images and save costs. Total savings of $5.73 per month can be achieved by implementing the lifecycle policy.",
+    "group_cost_report": {
+      "total_monthly_savings": 5.73,
+      "total_annual_savings": 68.76,
+      "findings_actioned": 1
+    }
+  },
+  "validators": {
+    "terraform_validate": {
+      "name": "terraform_validate",
+      "passed": true,
+      "score": 1.0,
+      "details": "Passed (undeclared-reference errors ignored \u2014 missing sibling resources are expected in eval workspace)"
+    },
+    "terraform_plan": {
+      "name": "terraform_plan",
+      "passed": false,
+      "score": 0.0,
+      "details": "Error: Reference to undeclared resource",
+      "skipped": false
+    },
+    "checkov": {
+      "name": "checkov",
+      "passed": true,
+      "score": 1.0,
+      "details": "No applicable Checkov checks for this resource type",
+      "raw": {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 0,
+        "checkov_version": "3.2.520"
+      }
+    },
+    "opa": {
+      "name": "opa",
+      "passed": true,
+      "score": 1.0,
+      "details": "23/23 OPA policies passed",
+      "skipped": false,
+      "raw": {
+        "entries": [
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_required",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_hardcoded_credentials",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_prevent_destroy_on_terminate",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_tag_removal",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_ec2_state",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_resource_scope_creep",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_max_365",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_create_replace_on_resize",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_volume_type",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_public_s3",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_ami_change",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.resize_only_changes_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.downsize_is_cheaper",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_unencrypted_volumes",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.production_requires_tags",
+            "successes": 1
+          }
+        ]
+      }
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.6333333333333333,
+      "details": "Numbers and structure are solid, but technical explanations are thin \u2014 missing the ingestion volume context, S3 archival justification, lifecycle rule specifics (1-day untagged / 30-cap tagged), and data_loss_acknowledged flag; rationales are generic rather than tied to the specific finding data.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 3,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 2,
+        "risk_communication": 3,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 2/2"
+    }
+  },
+  "raw_output": "{\n  \"findings\": {\n    \"/aws/lambda/user-auth\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"NONE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"The log group already has a retention period of 14 days, which is compliant and no action is needed.\"\n      },\n      \"technical_explanation\": \"The log group /aws/lambda/user-auth has a retention period of 14 days, which is already compliant with the best practices. No action is required.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"retention_days = 14, estimated_cost_per_month = 0.12\",\n        \"current_monthly_cost\": 0.12,\n        \"projected_monthly_cost\": 0.12,\n        \"monthly_savings\": 0.0,\n        \"annual_savings\": 0.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"data_loss_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    },\n    \"backend-service-ecr\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"SET_LIFECYCLE\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Adding a lifecycle policy to the ECR repository will help manage untagged images and save costs.\"\n      },\n      \"technical_explanation\": \"The ECR repository backend-service has 368 untagged images, which can be managed by adding a lifecycle policy. This will help in reducing the storage costs and maintaining a clean repository.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"untagged_images = 368, total_size_gb = 61.7, estimated_savings_per_month = 5.73\",\n        \"current_monthly_cost\": 6.17,\n        \"projected_monthly_cost\": 0.44,\n        \"monthly_savings\": 5.73,\n        \"annual_savings\": 68.76\n      },\n      \"risk_assessment\": {\n        \"risks\": [\"Potential data loss if untagged images are deleted\"],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"Verify that the lifecycle policy does not delete any critical images. Ensure that the tagged images are not affected by the policy.\"\n      },\n      \"data_loss_acknowledged\": true,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_ecr_lifecycle_policy\\\" \\\"backend_service_lifecycle\\\" {\\n  repository = aws_ecr_repository.backend_service.name\\n  policy     = <<EOF\\n{\\n  \\\"rules\\\": [\\n    {\\n      \\\"rulePriority\\\": 1,\\n      \\\"description\\\": \\\"Expire untagged images after 1 day\\\",\\n      \\\"selection\\\": {\\n        \\\"tagStatus\\\": \\\"untagged\\\",\\n        \\\"countType\\\": \\\"sinceImagePushed\\\",\\n        \\\"countUnit\\\": \\\"days\\\",\\n        \\\"countNumber\\\": 1\\n      },\\n      \\\"action\\\": {\\n        \\\"type\\\": \\\"expire\\\"\\n      }\\n    },\\n    {\\n      \\\"rulePriority\\\": 2,\\n      \\\"description\\\": \\\"Keep last 30 tagged images\\\",\\n      \\\"selection\\\": {\\n        \\\"tagStatus\\\": \\\"tagged\\\",\\n        \\\"tagPrefixList\\\": [\\\"v\\\"],\\n        \\\"countType\\\": \\\"imageCountMoreThan\\\",\\n        \\\"countNumber\\\": 30\\n      },\\n      \\\"action\\\": {\\n        \\\"type\\\": \\\"expire\\\"\\n      }\\n    }\\n  ]\\n}\\nEOF\\n\\n  tags = {\\n    Name        = \\\"backend-service-lifecycle\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"SET_LIFECYCLE\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n}\"\n    }\n  },\n  \"group_summary\": \"The log group /aws/lambda/user-auth is already compliant with the retention policy. The ECR repository backend-service can benefit from a lifecycle policy to manage untagged images and save costs. Total savings of $5.73 per month can be achieved by implementing the lifecycle policy.\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 5.73,\n    \"total_annual_savings\": 68.76,\n    \"findings_actioned\": 1\n  }\n}",
+  "latency_ms": 7428,
+  "attempts": 1
+}

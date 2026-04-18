@@ -1,0 +1,57 @@
+{
+  "scenario_id": "C3",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": "OPTIMAL",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "DESTROY",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The EIP is unattached for 12 days, confirming it as a ghost resource with no data loss risk, making destruction the optimal action."
+    },
+    "technical_explanation": "The EIP has been unattached for 12 days, which indicates it is no longer in use and is incurring unnecessary costs. Since EIPs do not store data, destroying this resource will not result in any data loss. The current Terraform configuration does not prevent destruction, and the resource is not associated with any other critical components that would prevent its removal.",
+    "cost_report": {
+      "waste_evidence": "unattached_days=12, cost_per_month=3.6",
+      "current_monthly_cost": 3.6,
+      "projected_monthly_cost": null,
+      "monthly_savings": 3.6,
+      "annual_savings": 43.2
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.7666666666666667,
+      "details": "Numbers are internally consistent and risks are correctly assessed as empty for a data-free EIP, but the explanation omits the specific IP address (54.23.11.204), the FinOpsAction tag requirement, and the lifecycle prevent_destroy = false detail, leaving key facts only partially covered.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 3,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 4,
+        "risk_communication": 4,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "```json\n{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"DESTROY\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The EIP is unattached for 12 days, confirming it as a ghost resource with no data loss risk, making destruction the optimal action.\"\n  },\n  \"technical_explanation\": \"The EIP has been unattached for 12 days, which indicates it is no longer in use and is incurring unnecessary costs. Since EIPs do not store data, destroying this resource will not result in any data loss. The current Terraform configuration does not prevent destruction, and the resource is not associated with any other critical components that would prevent its removal.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"unattached_days=12, cost_per_month=3.6\",\n    \"current_monthly_cost\": 3.6,\n    \"projected_monthly_cost\": null,\n    \"monthly_savings\": 3.6,\n    \"annual_savings\": 43.2\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}\n```",
+  "latency_ms": 1551,
+  "attempts": 1
+}

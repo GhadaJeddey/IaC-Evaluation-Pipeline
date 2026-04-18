@@ -1,0 +1,60 @@
+{
+  "scenario_id": "A2",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "TERMINATE",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance has been stopped for 38 days with negligible network activity, indicating it is no longer in use and is incurring unnecessary EBS costs."
+    },
+    "technical_explanation": "The EC2 instance 'old-batch-server-01' (i-a002) of type 'm5.large' has been in a 'stopped' state for 38 consecutive days. During this period, its average network outbound activity was only 42 bytes, which is effectively zero. While a stopped instance does not incur compute costs, its associated EBS volumes continue to accrue charges. This pattern strongly suggests the instance is a 'zombie' resource, no longer required, and its continued existence represents avoidable cost. Termination will eliminate the EBS storage costs.",
+    "cost_report": {
+      "waste_evidence": "stopped_days=38, network_out_bytes_avg=42, waste_per_month=$69.12",
+      "current_monthly_cost": 69.12,
+      "projected_monthly_cost": null,
+      "monthly_savings": 69.12,
+      "annual_savings": 829.44
+    },
+    "risk_assessment": {
+      "risks": [
+        "Potential loss of data if the instance's root volume contains critical unbacked-up data.",
+        "Disruption to any dependent processes or services that might expect this instance to be available or restarted."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Verify that the instance 'old-batch-server-01' (i-a002) is indeed no longer needed and has no active dependencies. Confirm that any critical data on its root volume has been backed up or is ephemeral. Check CloudTrail logs for recent API calls related to this instance to ensure no manual operations are being performed."
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": true,
+    "terraform_action": "SCRIPT_HANDLES",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.9333333333333333,
+      "details": "All key facts are explicitly cited with correct figures and the report is fully populated, though the rationale could more explicitly address why termination was chosen over snapshotting, and risk_assessment lacks data_loss_acknowledged field.",
+      "breakdown": {
+        "key_facts_coverage": 5,
+        "explanation_clarity": 5,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 4,
+        "risk_communication": 4,
+        "completeness": 5
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"TERMINATE\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance has been stopped for 38 days with negligible network activity, indicating it is no longer in use and is incurring unnecessary EBS costs.\"\n  },\n  \"technical_explanation\": \"The EC2 instance 'old-batch-server-01' (i-a002) of type 'm5.large' has been in a 'stopped' state for 38 consecutive days. During this period, its average network outbound activity was only 42 bytes, which is effectively zero. While a stopped instance does not incur compute costs, its associated EBS volumes continue to accrue charges. This pattern strongly suggests the instance is a 'zombie' resource, no longer required, and its continued existence represents avoidable cost. Termination will eliminate the EBS storage costs.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"stopped_days=38, network_out_bytes_avg=42, waste_per_month=$69.12\",\n    \"current_monthly_cost\": 69.12,\n    \"projected_monthly_cost\": null,\n    \"monthly_savings\": 69.12,\n    \"annual_savings\": 829.44\n  },\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Potential loss of data if the instance's root volume contains critical unbacked-up data.\",\n      \"Disruption to any dependent processes or services that might expect this instance to be available or restarted.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Verify that the instance 'old-batch-server-01' (i-a002) is indeed no longer needed and has no active dependencies. Confirm that any critical data on its root volume has been backed up or is ephemeral. Check CloudTrail logs for recent API calls related to this instance to ensure no manual operations are being performed.\"\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": true,\n  \"terraform_action\": \"SCRIPT_HANDLES\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 21446,
+  "attempts": 1
+}

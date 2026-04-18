@@ -34,17 +34,18 @@ MODELS = {
         "rpm_limit":         60,
         "rpd_limit":         1000,
         "interval_seconds":  10,
+        "max_tokens":        3500,   # Groq TPM limit is 6000 (input+output); largest prompts ~2500 tokens
     },
     "llama3.3-70b": {
         "provider":          "groq",
         "model_id":          "llama-3.3-70b-versatile",
         "rpm_limit":         30,
         "rpd_limit":         1000,
-        "interval_seconds":  10,
+        "interval_seconds":  20,   # raised from 10 — 12k TPM limit; Terraform responses are large
     },
     "gemini-2.5-flash": {
         "provider":          "google",
-        "model_id":          "gemini-2.5-flash-preview-04-17",
+        "model_id":          "gemini-2.5-flash",
         "rpm_limit":         10,
         "rpd_limit":         250,
         "interval_seconds":  7,

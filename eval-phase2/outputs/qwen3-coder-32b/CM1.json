@@ -1,0 +1,367 @@
+{
+  "scenario_id": "CM1",
+  "tier": "tier_c",
+  "terraform_mode": 2,
+  "expected_verdict": {
+    "eipalloc-0a1b2c3d4e5f6001": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "LLM_GENERATED",
+      "terraform_must_include": [
+        "aws_eip",
+        "lifecycle"
+      ],
+      "expected_data_loss_acknowledged": false,
+      "key_facts": [
+        "EIP 52.14.88.201 unattached 9 days \u2014 ghost resource",
+        "$3.60/month wasted on idle allocation",
+        "EIP carries no data \u2014 data_loss_acknowledged must be false",
+        "lifecycle prevent_destroy = false required"
+      ]
+    },
+    "vol-0b2c3d4e5f6a7b801": {
+      "expected_verdict": "OPTIMAL",
+      "expected_terraform_action": "LLM_GENERATED",
+      "terraform_must_include": [
+        "aws_ebs_volume",
+        "lifecycle"
+      ],
+      "expected_data_loss_acknowledged": true,
+      "key_facts": [
+        "EBS vol-0b2c3d4e5f6a7b801 (100 GB gp3) available 5 days \u2014 ghost resource",
+        "$8.00/month wasted",
+        "DATA LOSS: volume contents permanently deleted \u2014 data_loss_acknowledged must be true",
+        "lifecycle prevent_destroy = false required"
+      ]
+    }
+  },
+  "model": "qwen3-coder-32b",
+  "llm_response": {
+    "findings": {
+      "eipalloc-0a1b2c3d4e5f6001": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DESTROY",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Unattached EIP confirmed as ghost resource with no data loss risk."
+        },
+        "technical_explanation": "EIP 52.14.88.201 has been unattached for 9 days and incurs $3.60/month in charges. EIPs without active associations are charged at $0.005/hour (approx. $3.60/month). Destruction is safe as EIPs do not store data.",
+        "cost_report": {
+          "waste_evidence": "Unattached for 9 days, cost_per_month=3.6",
+          "current_monthly_cost": 3.6,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 3.6,
+          "annual_savings": 43.2
+        },
+        "risk_assessment": {
+          "risks": [],
+          "requires_manual_verification": false,
+          "verification_steps": null
+        },
+        "data_loss_acknowledged": false,
+        "terraform_action": "NONE",
+        "terraform_block": null
+      },
+      "vol-0b2c3d4e5f6a7b801": {
+        "verdict": "OPTIMAL",
+        "decision_summary": {
+          "action": "DESTROY",
+          "decided_by": "AGENT_VALIDATED",
+          "rationale": "Available EBS volume confirmed as ghost resource with data loss risk."
+        },
+        "technical_explanation": "100 GB gp3 EBS volume has been unattached for 5 days and incurs $8.00/month in storage charges. Destruction will permanently delete all data on the volume.",
+        "cost_report": {
+          "waste_evidence": "Available for 5 days, cost_per_month=8.0",
+          "current_monthly_cost": 8.0,
+          "projected_monthly_cost": 0.0,
+          "monthly_savings": 8.0,
+          "annual_savings": 96.0
+        },
+        "risk_assessment": {
+          "risks": [
+            "Data loss: Volume contents will be permanently deleted"
+          ],
+          "requires_manual_verification": true,
+          "verification_steps": "1. Confirm no applications depend on this volume\n2. Verify no snapshots exist in AWS console\n3. Check CI/CD pipelines for volume references"
+        },
+        "data_loss_acknowledged": true,
+        "terraform_action": "LLM_GENERATED",
+        "terraform_block": "resource \"aws_ebs_volume\" \"ghost_volume_7b801\" {\n  availability_zone = \"us-east-1a\"\n  size              = 100\n  type              = \"gp3\"\n  encrypted         = false\n\n  tags = {\n    Name = \"ghost-volume-7b801\"\n    FinOpsAction = \"DESTROY\"\n    FinOpsReviewed = \"true\"\n  }\n\n  lifecycle {\n    prevent_destroy = false\n  }\n}"
+      }
+    },
+    "group_summary": "Two ghost resources identified: an unattached EIP ($3.60/month) and an available EBS volume ($8.00/month). The EIP can be safely destroyed immediately. The EBS volume requires manual verification before destruction due to data loss risk. Total potential savings: $11.60/month ($139.20/year).",
+    "group_cost_report": {
+      "total_monthly_savings": 11.6,
+      "total_annual_savings": 139.2,
+      "findings_actioned": 1
+    }
+  },
+  "validators": {
+    "terraform_validate": {
+      "name": "terraform_validate",
+      "passed": true,
+      "score": 1.0,
+      "details": "{\n  \"format_version\": \"1.0\",\n  \"valid\": true,\n  \"error_count\": 0,\n  \"warning_count\": 0,\n  \"diagnostics\": []\n}"
+    },
+    "terraform_plan": {
+      "name": "terraform_plan",
+      "passed": true,
+      "score": 1.0,
+      "details": "plan succeeded \u2014 plan.json written (2994 bytes)",
+      "skipped": false
+    },
+    "checkov": {
+      "name": "checkov",
+      "passed": false,
+      "score": 0.0,
+      "details": "0/1 checks passed \u2014 failed IDs: ['CKV_AWS_3'] \u2014 resources: ['aws_ebs_volume.ghost_volume_7b801']",
+      "raw": {
+        "check_type": "terraform",
+        "results": {
+          "passed_checks": [],
+          "failed_checks": [
+            {
+              "check_id": "CKV_AWS_3",
+              "bc_check_id": "BC_AWS_GENERAL_3",
+              "check_name": "Ensure all data stored in the EBS is securely encrypted",
+              "check_result": {
+                "result": "FAILED",
+                "evaluated_keys": [
+                  "encrypted"
+                ]
+              },
+              "code_block": [
+                [
+                  1,
+                  "resource \"aws_ebs_volume\" \"ghost_volume_7b801\" {\n"
+                ],
+                [
+                  2,
+                  "  availability_zone = \"us-east-1a\"\n"
+                ],
+                [
+                  3,
+                  "  size              = 100\n"
+                ],
+                [
+                  4,
+                  "  type              = \"gp3\"\n"
+                ],
+                [
+                  5,
+                  "  encrypted         = false\n"
+                ],
+                [
+                  6,
+                  "\n"
+                ],
+                [
+                  7,
+                  "  tags = {\n"
+                ],
+                [
+                  8,
+                  "    Name = \"ghost-volume-7b801\"\n"
+                ],
+                [
+                  9,
+                  "    FinOpsAction = \"DESTROY\"\n"
+                ],
+                [
+                  10,
+                  "    FinOpsReviewed = \"true\"\n"
+                ],
+                [
+                  11,
+                  "  }\n"
+                ],
+                [
+                  12,
+                  "\n"
+                ],
+                [
+                  13,
+                  "  lifecycle {\n"
+                ],
+                [
+                  14,
+                  "    prevent_destroy = false\n"
+                ],
+                [
+                  15,
+                  "  }\n"
+                ],
+                [
+                  16,
+                  "}"
+                ]
+              ],
+              "file_path": "/main.tf",
+              "file_abs_path": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/main.tf",
+              "repo_file_path": "/tf_workspace/main.tf",
+              "file_line_range": [
+                1,
+                16
+              ],
+              "resource": "aws_ebs_volume.ghost_volume_7b801",
+              "evaluations": null,
+              "check_class": "checkov.terraform.checks.resource.aws.EBSEncryption",
+              "fixed_definition": null,
+              "entity_tags": {
+                "FinOpsAction": "DESTROY",
+                "FinOpsReviewed": true,
+                "Name": "ghost-volume-7b801"
+              },
+              "caller_file_path": null,
+              "caller_file_line_range": null,
+              "resource_address": null,
+              "severity": null,
+              "bc_category": null,
+              "benchmarks": null,
+              "description": null,
+              "short_description": null,
+              "vulnerability_details": null,
+              "connected_node": null,
+              "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-3-encrypt-ebs-volume",
+              "details": [],
+              "check_len": null,
+              "definition_context_file_path": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/main.tf"
+            }
+          ],
+          "skipped_checks": [],
+          "parsing_errors": []
+        },
+        "summary": {
+          "passed": 0,
+          "failed": 1,
+          "skipped": 0,
+          "parsing_errors": 0,
+          "resource_count": 1,
+          "checkov_version": "3.2.520"
+        },
+        "url": "Add an api key '--bc-api-key <api-key>' to see more detailed insights via https://bridgecrew.cloud"
+      }
+    },
+    "opa": {
+      "name": "opa",
+      "passed": false,
+      "score": 0.9167,
+      "details": "22/24 OPA policies passed \u2014 failures: unexpected resource type 'aws_eip' (name: nat_gw_staging_eip) \u2014 LLM introduced a resource outside the allowed scope | unexpected resource type 'aws_nat_gateway' (name: nat_gw_staging_app) \u2014 LLM introduced a resource outside the allowed scope",
+      "skipped": false,
+      "raw": {
+        "entries": [
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_max_365",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_public_s3",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.production_requires_tags",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.resize_only_changes_instance_type",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_volume_type",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_hardcoded_credentials",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_create_replace_on_resize",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.valid_ec2_state",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.log_retention_required",
+            "successes": 2
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_ami_change",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_resource_scope_creep",
+            "successes": 0,
+            "failures": [
+              {
+                "msg": "unexpected resource type 'aws_eip' (name: nat_gw_staging_eip) \u2014 LLM introduced a resource outside the allowed scope"
+              },
+              {
+                "msg": "unexpected resource type 'aws_nat_gateway' (name: nat_gw_staging_app) \u2014 LLM introduced a resource outside the allowed scope"
+              }
+            ]
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_prevent_destroy_on_terminate",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_unencrypted_volumes",
+            "successes": 3
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.downsize_is_cheaper",
+            "successes": 1
+          },
+          {
+            "filename": "/home/ghada/projects/PFA/eval-phase2/tf_workspace/plan.json",
+            "namespace": "finops.no_tag_removal",
+            "successes": 1
+          }
+        ]
+      }
+    },
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.8,
+      "details": "All key facts and numbers are present and internally consistent, but decision rationales are minimal and the group_cost_report shows findings_actioned=1 instead of 2, undermining completeness.",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 4,
+        "factual_grounding": 5,
+        "decision_rationale_quality": 3,
+        "risk_communication": 4,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "verdicts correct: 2/2"
+    }
+  },
+  "raw_output": "<think>\nOkay, let's start by looking at the first resource, the EIP with ID eipalloc-0a1b2c3d4e5f6001. The finding says it's unattached for 9 days and the cost is $3.6 per month. Agent 2's decision is to destroy it, which makes sense because EIPs that are unattached still incur charges. Since EIPs don't store data, destroying it won't cause data loss. The Terraform block provided by Agent 2 is correct, so I should validate that. The action here is DESTROY, and since there's no data loss, the risk assessment is low. I need to make sure the Terraform code includes lifecycle rules to allow destruction.\n\nNext, the EBS volume vol-0b2c3d4e5f6a7b801. It's a 100 GB gp3 volume that's been available for 5 days. The cost is $8 per month. Agent 2 also recommends destroying it. However, the volume is unencrypted, which is a security concern. Destroying it would result in data loss since EBS volumes store data. The user needs to be aware of this. The Terraform block should include lifecycle rules to prevent accidental destruction. Also, the encrypted flag is false, which might be a problem if encryption is required. The decision to destroy is correct, but the risk assessment must highlight the data loss risk. The user should verify if this volume is needed before proceeding.\n\nFor the EIP, the Terraform code should set prevent_destroy to false. For the EBS volume, same thing but also note the encryption status. The cost savings for the EIP is $3.6 per month, and for the EBS volume $8 per month. Total savings would be $11.6 per month. The group summary should mention both resources and their respective savings. The risk for the EBS volume is higher due to data loss, so manual verification is required. The EIP has no data loss risk, so it's safer to proceed without manual verification.\n</think>\n\n{\n  \"findings\": {\n    \"eipalloc-0a1b2c3d4e5f6001\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DESTROY\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Unattached EIP confirmed as ghost resource with no data loss risk.\"\n      },\n      \"technical_explanation\": \"EIP 52.14.88.201 has been unattached for 9 days and incurs $3.60/month in charges. EIPs without active associations are charged at $0.005/hour (approx. $3.60/month). Destruction is safe as EIPs do not store data.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"Unattached for 9 days, cost_per_month=3.6\",\n        \"current_monthly_cost\": 3.6,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 3.6,\n        \"annual_savings\": 43.2\n      },\n      \"risk_assessment\": {\n        \"risks\": [],\n        \"requires_manual_verification\": false,\n        \"verification_steps\": null\n      },\n      \"data_loss_acknowledged\": false,\n      \"terraform_action\": \"NONE\",\n      \"terraform_block\": null\n    },\n    \"vol-0b2c3d4e5f6a7b801\": {\n      \"verdict\": \"OPTIMAL\",\n      \"decision_summary\": {\n        \"action\": \"DESTROY\",\n        \"decided_by\": \"AGENT_VALIDATED\",\n        \"rationale\": \"Available EBS volume confirmed as ghost resource with data loss risk.\"\n      },\n      \"technical_explanation\": \"100 GB gp3 EBS volume has been unattached for 5 days and incurs $8.00/month in storage charges. Destruction will permanently delete all data on the volume.\",\n      \"cost_report\": {\n        \"waste_evidence\": \"Available for 5 days, cost_per_month=8.0\",\n        \"current_monthly_cost\": 8.0,\n        \"projected_monthly_cost\": 0.0,\n        \"monthly_savings\": 8.0,\n        \"annual_savings\": 96.0\n      },\n      \"risk_assessment\": {\n        \"risks\": [\n          \"Data loss: Volume contents will be permanently deleted\"\n        ],\n        \"requires_manual_verification\": true,\n        \"verification_steps\": \"1. Confirm no applications depend on this volume\\n2. Verify no snapshots exist in AWS console\\n3. Check CI/CD pipelines for volume references\"\n      },\n      \"data_loss_acknowledged\": true,\n      \"terraform_action\": \"LLM_GENERATED\",\n      \"terraform_block\": \"resource \\\"aws_ebs_volume\\\" \\\"ghost_volume_7b801\\\" {\\n  availability_zone = \\\"us-east-1a\\\"\\n  size              = 100\\n  type              = \\\"gp3\\\"\\n  encrypted         = false\\n\\n  tags = {\\n    Name = \\\"ghost-volume-7b801\\\"\\n    FinOpsAction = \\\"DESTROY\\\"\\n    FinOpsReviewed = \\\"true\\\"\\n  }\\n\\n  lifecycle {\\n    prevent_destroy = false\\n  }\\n}\"\n    }\n  },\n  \"group_summary\": \"Two ghost resources identified: an unattached EIP ($3.60/month) and an available EBS volume ($8.00/month). The EIP can be safely destroyed immediately. The EBS volume requires manual verification before destruction due to data loss risk. Total potential savings: $11.60/month ($139.20/year).\",\n  \"group_cost_report\": {\n    \"total_monthly_savings\": 11.6,\n    \"total_annual_savings\": 139.2,\n    \"findings_actioned\": 1\n  }\n}",
+  "latency_ms": 3450,
+  "attempts": 2
+}

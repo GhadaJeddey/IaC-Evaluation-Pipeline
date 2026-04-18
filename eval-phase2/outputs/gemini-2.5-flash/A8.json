@@ -1,0 +1,57 @@
+{
+  "scenario_id": "A8",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "INCORRECT",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "LLM_OVERRIDDEN",
+      "rationale": "Agent 2's decision to downsize was based on the primary instance's CPU usage, not the backup instance's own metrics, making the recommendation unsafe without further analysis."
+    },
+    "technical_explanation": "Agent 2 incorrectly based its downsizing recommendation for the 'app-backup-01' instance on the 'Primary P99 CPU (38.7%)' metric. This metric refers to the primary application instance, not the backup instance itself. Backup instances often have distinct workload patterns, characterized by low utilization for extended periods followed by high, bursty CPU and I/O usage during their active backup windows. Sizing a backup instance based on the primary's metrics can lead to performance degradation, failed backups, or incomplete data transfers if the backup instance is undersized for its specific operational demands. A safe downsizing decision requires analyzing the backup instance's own CPU, memory, and I/O utilization during its actual backup operations.",
+    "cost_report": {
+      "waste_evidence": "Agent 2 cited 'Primary P99 CPU (38.7%)' as evidence, but this metric is not applicable to the backup instance itself. No specific waste evidence for the backup instance was provided.",
+      "current_monthly_cost": 70.08,
+      "projected_monthly_cost": 70.08,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": false,
+      "score": 0.4666666666666667,
+      "details": "The LLM misread the ground truth: the 'secondary-safe algorithm' explicitly validates that primary P99 CPU at 38.7% is the correct signal for safely downsizing the backup, yet the response treats this as an error and refuses the correct DOWNSIZE action.",
+      "breakdown": {
+        "key_facts_coverage": 1,
+        "explanation_clarity": 3,
+        "factual_grounding": 2,
+        "decision_rationale_quality": 2,
+        "risk_communication": 3,
+        "completeness": 3
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": false,
+      "score": 0.0,
+      "details": "expected=OPTIMAL  actual=INCORRECT"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"INCORRECT\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"LLM_OVERRIDDEN\",\n    \"rationale\": \"Agent 2's decision to downsize was based on the primary instance's CPU usage, not the backup instance's own metrics, making the recommendation unsafe without further analysis.\"\n  },\n  \"technical_explanation\": \"Agent 2 incorrectly based its downsizing recommendation for the 'app-backup-01' instance on the 'Primary P99 CPU (38.7%)' metric. This metric refers to the primary application instance, not the backup instance itself. Backup instances often have distinct workload patterns, characterized by low utilization for extended periods followed by high, bursty CPU and I/O usage during their active backup windows. Sizing a backup instance based on the primary's metrics can lead to performance degradation, failed backups, or incomplete data transfers if the backup instance is undersized for its specific operational demands. A safe downsizing decision requires analyzing the backup instance's own CPU, memory, and I/O utilization during its actual backup operations.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"Agent 2 cited 'Primary P99 CPU (38.7%)' as evidence, but this metric is not applicable to the backup instance itself. No specific waste evidence for the backup instance was provided.\",\n    \"current_monthly_cost\": 70.08,\n    \"projected_monthly_cost\": 70.08,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 10386,
+  "attempts": 1
+}

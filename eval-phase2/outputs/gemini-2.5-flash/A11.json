@@ -1,0 +1,57 @@
+{
+  "scenario_id": "A11",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance serves as a critical production failover target, where low CPU utilization is expected during normal operation, making automated action unsafe."
+    },
+    "technical_explanation": "The EC2 instance `app-standby-01` (i-a011) shows very low CPU utilization (P95 CPU 2.7%, Max CPU 4.9%). However, it is explicitly identified as a 'failover_for' node for `app-primary-prod` in a production environment. For a standby instance, low resource utilization is normal and expected, as its primary function is to be ready to take over the workload of the primary instance in case of failure. Downsizing or stopping this instance could compromise the high availability architecture and lead to service disruption during a failover event. Agent 2 correctly identified the low utilization but also the critical 'type_e_redundancy' relationship, leading to a 'NEEDS_REVIEW' decision, which is appropriate. No action is recommended.",
+    "cost_report": {
+      "waste_evidence": "p95_cpu=2.7%, p99_cpu=3.5%, max_cpu=4.9%, p95_ram=21.3%",
+      "current_monthly_cost": 70.08,
+      "projected_monthly_cost": 70.08,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.8,
+      "details": "The explanation is specific and well-grounded, correctly covering the failover relationship, type_e block, and NEEDS_REVIEW rationale, but misses explicit mention of blast_radius impact on app-primary-prod and the redundancy_node=true flag requiring human escalation, and risk_assessment is empty despite the real operational risk of losing failover coverage.",
+      "breakdown": {
+        "key_facts_coverage": 4,
+        "explanation_clarity": 5,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 4,
+        "risk_communication": 3,
+        "completeness": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance serves as a critical production failover target, where low CPU utilization is expected during normal operation, making automated action unsafe.\"\n  },\n  \"technical_explanation\": \"The EC2 instance `app-standby-01` (i-a011) shows very low CPU utilization (P95 CPU 2.7%, Max CPU 4.9%). However, it is explicitly identified as a 'failover_for' node for `app-primary-prod` in a production environment. For a standby instance, low resource utilization is normal and expected, as its primary function is to be ready to take over the workload of the primary instance in case of failure. Downsizing or stopping this instance could compromise the high availability architecture and lead to service disruption during a failover event. Agent 2 correctly identified the low utilization but also the critical 'type_e_redundancy' relationship, leading to a 'NEEDS_REVIEW' decision, which is appropriate. No action is recommended.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"p95_cpu=2.7%, p99_cpu=3.5%, max_cpu=4.9%, p95_ram=21.3%\",\n    \"current_monthly_cost\": 70.08,\n    \"projected_monthly_cost\": 70.08,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 9912,
+  "attempts": 1
+}

@@ -1460,7 +1460,7 @@
                 ],
                 "current_terraform": "resource \"aws_instance\" \"api_server_healthy_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 20\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"api-server-healthy-01\"\n    Environment = \"production\"\n  }\n}",
                 "llm_evaluation": {
-                    "expected_verdict": "CLEAN",
+                    "expected_verdict": "OPTIMAL",
                     "expected_terraform_action": "NO_CHANGE",
                     "expected_pipeline_warning_acknowledged": false,
                     "terraform_block_expected": false,

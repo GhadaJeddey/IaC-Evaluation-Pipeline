@@ -8,6 +8,10 @@ Model-specific formatting is handled by the runners.
                       OPTIMAL  → NL explanation only, no Terraform.
                       SUBOPTIMAL / INCORRECT → NL explanation + LLM-generated Terraform.
 - Mode 3: Crash RCA from StatusCheckFailed logs.
+
+KEEP → verdict = OPTIMAL, resource is flagged but intentionally kept → terraform_action = SCRIPT_HANDLES
+NONE → verdict = OPTIMAL, resource is already fine, no flag acted upon → terraform_action = NONE
+
 """
 
 import json
@@ -208,6 +212,10 @@ TERRAFORM RULES — only when terraform_action = LLM_GENERATED:
   - Keep all existing tags and add: FinOpsAction = "<action>", FinOpsReviewed = "true".
   - Never remove encrypted = true if it exists.
   - Output complete, valid HCL — not snippets.
+  - Pre-compute all numeric values — never write arithmetic expressions (e.g. write 91.98, not 730 * 0.126).
+  - Use JSON string syntax for terraform_block values — never use triple quotes.
+  - Always set encrypted = true on root_block_device and any ebs_block_device blocks.
+  
 
 OUTPUT FORMAT:
 Respond with ONLY valid JSON matching this schema — no prose before or after:

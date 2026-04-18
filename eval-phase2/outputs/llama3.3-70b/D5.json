@@ -1,0 +1,54 @@
+{
+  "scenario_id": "D5",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "TRANSIENT_OOM",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "root_cause": "The instance ran out of memory due to the batch processing job consuming too much RAM, triggering the Linux OOM killer to terminate the process.",
+    "root_cause_category": "OOM_KERNEL",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The instance started a monthly report aggregation job, which consumed a large amount of memory, leading to memory pressure and eventually triggering the OOM killer to kill the process. The instance then retried the job with a reduced batch size, which resolved the memory pressure.",
+    "remediation": "Increase the instance type to one with more RAM, such as r5.2xlarge or r5.4xlarge, to prevent the OOM killer from being triggered in the future.",
+    "aws_specific_notes": "The r5.xlarge instance type has 32GB of RAM, which was insufficient for the batch processing job. Upgrading to a larger instance type will provide more RAM and prevent the OOM killer from being triggered.",
+    "risk_assessment": {
+      "risks": [
+        "Dependent services may be affected by the instance type change"
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Verify that the new instance type has sufficient RAM for the batch processing job and that dependent services are not affected by the change."
+    },
+    "terraform_suggested": true,
+    "terraform_block": "\nresource \"aws_instance\" \"batch_worker_prod_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.2xlarge\"\n\n  root_block_device {\n    volume_type = \"gp3\"\n    volume_size = 100\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"batch-worker-prod-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}\n"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.72,
+      "details": "The response correctly identifies the OOM kill event and recovery, but overstates severity as P1_OUTAGE when the instance self-recovered successfully, and the trust/risk paragraph mentions dependent services only vaguely without actionable detail.",
+      "breakdown": {
+        "diagnosis_accuracy": 4,
+        "factual_correctness": 4,
+        "completeness": 4,
+        "trust_paragraph": 3,
+        "actionability": 3
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": false,
+      "score": 0.0,
+      "details": "expected=TRANSIENT_OOM  actual=OOM_KERNEL"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 0.8,
+      "details": "diagnosis_accuracy=4/5"
+    }
+  },
+  "raw_output": "```json\n{\n  \"root_cause\": \"The instance ran out of memory due to the batch processing job consuming too much RAM, triggering the Linux OOM killer to terminate the process.\",\n  \"root_cause_category\": \"OOM_KERNEL\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The instance started a monthly report aggregation job, which consumed a large amount of memory, leading to memory pressure and eventually triggering the OOM killer to kill the process. The instance then retried the job with a reduced batch size, which resolved the memory pressure.\",\n  \"remediation\": \"Increase the instance type to one with more RAM, such as r5.2xlarge or r5.4xlarge, to prevent the OOM killer from being triggered in the future.\",\n  \"aws_specific_notes\": \"The r5.xlarge instance type has 32GB of RAM, which was insufficient for the batch processing job. Upgrading to a larger instance type will provide more RAM and prevent the OOM killer from being triggered.\",\n  \"risk_assessment\": {\n    \"risks\": [\"Dependent services may be affected by the instance type change\"],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Verify that the new instance type has sufficient RAM for the batch processing job and that dependent services are not affected by the change.\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"\"\"\nresource \"aws_instance\" \"batch_worker_prod_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"r5.2xlarge\"\n\n  root_block_device {\n    volume_type = \"gp3\"\n    volume_size = 100\n    encrypted   = true\n  }\n\n  tags = {\n    Name        = \"batch-worker-prod-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}\n\"\"\"\n}\n```",
+  "latency_ms": 1546,
+  "attempts": 1
+}

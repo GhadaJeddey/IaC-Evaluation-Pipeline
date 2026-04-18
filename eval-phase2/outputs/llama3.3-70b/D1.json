@@ -1,0 +1,54 @@
+{
+  "scenario_id": "D1",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "OOM_HEAP",
+  "model": "llama3.3-70b",
+  "llm_response": {
+    "root_cause": "The Java application ran out of heap space due to high memory usage, causing the JVM to terminate with an OutOfMemoryError.",
+    "root_cause_category": "OOM_HEAP",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The application started processing a large batch of transactions, leading to increased heap usage and GC pause durations. As heap usage reached 98.7%, the JVM encountered an OutOfMemoryError, and the application shutdown was initiated, resulting in a StatusCheckFailed alarm.",
+    "remediation": "Increase the JVM heap size by adjusting the -Xmx parameter or upgrade the instance type to one with more RAM to prevent heap space exhaustion.",
+    "aws_specific_notes": "Consider switching to a fixed-performance instance type like c5 or m5 for more consistent performance and to avoid CPU credit throttling.",
+    "risk_assessment": {
+      "risks": [
+        "Dependent services may be affected by the application outage"
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "Verify that the increased heap size or instance type upgrade resolves the OutOfMemoryError and that the application is functioning as expected."
+    },
+    "terraform_suggested": false,
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.76,
+      "details": "The response correctly identifies the OOM heap exhaustion root cause with accurate log references and provides concrete remediation steps, but the trust/risk paragraph is vague about dependent services and the aws_specific_notes about CPU credit throttling is irrelevant to the actual issue.",
+      "breakdown": {
+        "diagnosis_accuracy": 4,
+        "factual_correctness": 4,
+        "completeness": 4,
+        "trust_paragraph": 3,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OOM_HEAP  actual=OOM_HEAP"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 0.8,
+      "details": "diagnosis_accuracy=4/5"
+    }
+  },
+  "raw_output": "```json\n{\n  \"root_cause\": \"The Java application ran out of heap space due to high memory usage, causing the JVM to terminate with an OutOfMemoryError.\",\n  \"root_cause_category\": \"OOM_HEAP\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The application started processing a large batch of transactions, leading to increased heap usage and GC pause durations. As heap usage reached 98.7%, the JVM encountered an OutOfMemoryError, and the application shutdown was initiated, resulting in a StatusCheckFailed alarm.\",\n  \"remediation\": \"Increase the JVM heap size by adjusting the -Xmx parameter or upgrade the instance type to one with more RAM to prevent heap space exhaustion.\",\n  \"aws_specific_notes\": \"Consider switching to a fixed-performance instance type like c5 or m5 for more consistent performance and to avoid CPU credit throttling.\",\n  \"risk_assessment\": {\n    \"risks\": [\"Dependent services may be affected by the application outage\"],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"Verify that the increased heap size or instance type upgrade resolves the OutOfMemoryError and that the application is functioning as expected.\"\n  },\n  \"terraform_suggested\": false,\n  \"terraform_block\": null\n}\n```",
+  "latency_ms": 1301,
+  "attempts": 1
+}

@@ -1,0 +1,59 @@
+{
+  "scenario_id": "A7",
+  "tier": "tier_a",
+  "terraform_mode": 1,
+  "expected_verdict": "OPTIMAL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "verdict": "OPTIMAL",
+    "decision_summary": {
+      "action": "KEEP",
+      "decided_by": "AGENT_VALIDATED",
+      "rationale": "The instance is a dependent secondary, and its primary is experiencing high CPU utilization, making any optimization action unsafe at this time."
+    },
+    "technical_explanation": "Agent 2 correctly identified that this EC2 instance (db-secondary-02) is a dependent secondary. While secondary instances are often candidates for optimization, the primary instance ('i-primary-hot') is currently operating at a P99 CPU utilization of 87.4%. Attempting to downsize or stop the secondary instance under these conditions would introduce significant risk to the primary database's availability, performance, or failover capabilities. Therefore, the current instance type (r5.large) must be maintained to ensure resilience and support potential failover or read replica demands, despite no immediate waste being identified on the secondary itself.",
+    "cost_report": {
+      "waste_evidence": "Primary P99 CPU (87.4%) too high, waste_per_month=$0.00. No safe optimization possible due to primary's load.",
+      "current_monthly_cost": 91.98,
+      "projected_monthly_cost": 91.98,
+      "monthly_savings": 0.0,
+      "annual_savings": 0.0
+    },
+    "risk_assessment": {
+      "risks": [
+        "Attempting to downsize or stop this secondary instance while the primary is under high load (P99 CPU 87.4%) could lead to service degradation, failover issues, or data inconsistency for the primary database."
+      ],
+      "requires_manual_verification": false,
+      "verification_steps": null
+    },
+    "pipeline_warning_acknowledged": false,
+    "data_loss_acknowledged": false,
+    "terraform_action": "NONE",
+    "terraform_block": null
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.6666666666666666,
+      "details": "The explanation is specific and well-grounded with correct metrics, but critically misses that NEEDS_REVIEW/OPTIMAL is the right verdict \u2014 the LLM chose KEEP/AGENT_VALIDATED instead of escalating to human review, omits the 'no safe fallback instance type' constraint, sets requires_manual_verification=false (wrong), and provides no verification steps despite the high blast radius.",
+      "breakdown": {
+        "key_facts_coverage": 3,
+        "explanation_clarity": 5,
+        "factual_grounding": 4,
+        "decision_rationale_quality": 3,
+        "risk_communication": 2,
+        "completeness": 3
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OPTIMAL  actual=OPTIMAL"
+    }
+  },
+  "raw_output": "{\n  \"verdict\": \"OPTIMAL\",\n  \"decision_summary\": {\n    \"action\": \"KEEP\",\n    \"decided_by\": \"AGENT_VALIDATED\",\n    \"rationale\": \"The instance is a dependent secondary, and its primary is experiencing high CPU utilization, making any optimization action unsafe at this time.\"\n  },\n  \"technical_explanation\": \"Agent 2 correctly identified that this EC2 instance (db-secondary-02) is a dependent secondary. While secondary instances are often candidates for optimization, the primary instance ('i-primary-hot') is currently operating at a P99 CPU utilization of 87.4%. Attempting to downsize or stop the secondary instance under these conditions would introduce significant risk to the primary database's availability, performance, or failover capabilities. Therefore, the current instance type (r5.large) must be maintained to ensure resilience and support potential failover or read replica demands, despite no immediate waste being identified on the secondary itself.\",\n  \"cost_report\": {\n    \"waste_evidence\": \"Primary P99 CPU (87.4%) too high, waste_per_month=$0.00. No safe optimization possible due to primary's load.\",\n    \"current_monthly_cost\": 91.98,\n    \"projected_monthly_cost\": 91.98,\n    \"monthly_savings\": 0.0,\n    \"annual_savings\": 0.0\n  },\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Attempting to downsize or stop this secondary instance while the primary is under high load (P99 CPU 87.4%) could lead to service degradation, failover issues, or data inconsistency for the primary database.\"\n    ],\n    \"requires_manual_verification\": false,\n    \"verification_steps\": null\n  },\n  \"pipeline_warning_acknowledged\": false,\n  \"data_loss_acknowledged\": false,\n  \"terraform_action\": \"NONE\",\n  \"terraform_block\": null\n}",
+  "latency_ms": 11202,
+  "attempts": 1
+}

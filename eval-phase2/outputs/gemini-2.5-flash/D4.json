@@ -1,0 +1,55 @@
+{
+  "scenario_id": "D4",
+  "tier": "tier_d",
+  "terraform_mode": 3,
+  "expected_verdict": "OOM_KERNEL",
+  "model": "gemini-2.5-flash",
+  "llm_response": {
+    "root_cause": "The Linux kernel's Out-Of-Memory (OOM) killer terminated the python3 inference process due to insufficient available RAM on the instance.",
+    "root_cause_category": "OOM_KERNEL",
+    "severity": "P1_OUTAGE",
+    "timeline_summary": "The instance started loading a large ML model (1.34 GB) and began processing a batch queue. Shortly after, system memory became critically low (MemAvailable: 87MB). The kernel initiated memory compaction, but ultimately the OOM killer was invoked, terminating the main python3 inference process. This led to the inference worker service exiting with a SIGKILL signal, resulting in the application becoming unresponsive and triggering a StatusCheckFailed alarm.",
+    "remediation": "Upgrade the EC2 instance type to one with significantly more RAM. The current t3.large (8 GiB RAM) is insufficient for the ML model and inference workload. A c5.xlarge instance (16 GiB RAM) is recommended to provide adequate memory headroom and improved CPU performance for ML tasks.",
+    "aws_specific_notes": "The t3.large instance type is burstable and provides 8 GiB of RAM. For sustained, memory-intensive ML workloads, a fixed-performance instance type like c5.xlarge is generally more suitable, offering both increased memory (16 GiB) and dedicated CPU resources, preventing potential CPU credit exhaustion issues in addition to resolving the OOM.",
+    "risk_assessment": {
+      "risks": [
+        "Changing the instance type requires a stop/start cycle, which will cause temporary downtime for the ml-inference-server-01.",
+        "Ensure the application starts correctly and performs as expected on the new instance type."
+      ],
+      "requires_manual_verification": true,
+      "verification_steps": "After applying the Terraform change and the instance restarts, verify that the ml-inference-server-01 application starts successfully, loads the model without OOM errors, and can process inference requests. Monitor system memory (MemAvailable) and CPU utilization to confirm stability."
+    },
+    "terraform_suggested": true,
+    "terraform_block": "resource \"aws_instance\" \"ml_inference_server_01\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"c5.xlarge\" # Upgraded from t3.large (8GiB) to c5.xlarge (16GiB) for increased memory and CPU performance for ML workloads.\n\n  root_block_device {\n    volume_type = \"gp2\"\n    volume_size = 50\n    encrypted   = false\n  }\n\n  tags = {\n    Name        = \"ml-inference-server-01\"\n    Environment = \"production\"\n    FinOpsAction = \"crash-remediation\"\n  }\n}"
+  },
+  "validators": {
+    "nl_quality": {
+      "name": "nl_quality",
+      "passed": true,
+      "score": 0.84,
+      "details": "The response accurately identifies the OOM kill with precise log evidence and timestamps, provides a concrete upgrade recommendation with Terraform, but the risk section only mentions downtime for the instance itself without warning about dependent services or downstream consumers that may be affected by the remediation.",
+      "breakdown": {
+        "diagnosis_accuracy": 5,
+        "factual_correctness": 5,
+        "completeness": 5,
+        "trust_paragraph": 2,
+        "actionability": 4
+      }
+    },
+    "behavior_correct": {
+      "name": "behavior_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "expected=OOM_KERNEL  actual=OOM_KERNEL"
+    },
+    "diagnosis_correct": {
+      "name": "diagnosis_correct",
+      "passed": true,
+      "score": 1.0,
+      "details": "diagnosis_accuracy=5/5"
+    }
+  },
+  "raw_output": "{\n  \"root_cause\": \"The Linux kernel's Out-Of-Memory (OOM) killer terminated the python3 inference process due to insufficient available RAM on the instance.\",\n  \"root_cause_category\": \"OOM_KERNEL\",\n  \"severity\": \"P1_OUTAGE\",\n  \"timeline_summary\": \"The instance started loading a large ML model (1.34 GB) and began processing a batch queue. Shortly after, system memory became critically low (MemAvailable: 87MB). The kernel initiated memory compaction, but ultimately the OOM killer was invoked, terminating the main python3 inference process. This led to the inference worker service exiting with a SIGKILL signal, resulting in the application becoming unresponsive and triggering a StatusCheckFailed alarm.\",\n  \"remediation\": \"Upgrade the EC2 instance type to one with significantly more RAM. The current t3.large (8 GiB RAM) is insufficient for the ML model and inference workload. A c5.xlarge instance (16 GiB RAM) is recommended to provide adequate memory headroom and improved CPU performance for ML tasks.\",\n  \"aws_specific_notes\": \"The t3.large instance type is burstable and provides 8 GiB of RAM. For sustained, memory-intensive ML workloads, a fixed-performance instance type like c5.xlarge is generally more suitable, offering both increased memory (16 GiB) and dedicated CPU resources, preventing potential CPU credit exhaustion issues in addition to resolving the OOM.\",\n  \"risk_assessment\": {\n    \"risks\": [\n      \"Changing the instance type requires a stop/start cycle, which will cause temporary downtime for the ml-inference-server-01.\",\n      \"Ensure the application starts correctly and performs as expected on the new instance type.\"\n    ],\n    \"requires_manual_verification\": true,\n    \"verification_steps\": \"After applying the Terraform change and the instance restarts, verify that the ml-inference-server-01 application starts successfully, loads the model without OOM errors, and can process inference requests. Monitor system memory (MemAvailable) and CPU utilization to confirm stability.\"\n  },\n  \"terraform_suggested\": true,\n  \"terraform_block\": \"resource \\\"aws_instance\\\" \\\"ml_inference_server_01\\\" {\\n  ami           = \\\"ami-0c55b159cbfafe1f0\\\"\\n  instance_type = \\\"c5.xlarge\\\" # Upgraded from t3.large (8GiB) to c5.xlarge (16GiB) for increased memory and CPU performance for ML workloads.\\n\\n  root_block_device {\\n    volume_type = \\\"gp2\\\"\\n    volume_size = 50\\n    encrypted   = false\\n  }\\n\\n  tags = {\\n    Name        = \\\"ml-inference-server-01\\\"\\n    Environment = \\\"production\\\"\\n    FinOpsAction = \\\"crash-remediation\\\"\\n  }\\n}\"\n}",
+  "latency_ms": 13804,
+  "attempts": 1
+}
