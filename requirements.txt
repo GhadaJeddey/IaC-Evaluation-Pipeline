@@ -1,0 +1,11 @@
+# LLM IAC Evaluation Pipeline
+# Install with: pip install -r requirements.txt
+
+
+# Note: terraform and OPA (opa) binaries must be installed separately
+
+# HTTP client — used by all LLM runners (Groq, Google, Mistral)
+requests>=2.32.3
+
+# Static security analysis — called as CLI by validators/checkov/checkov_runner.py
+checkov>=3.2.520
